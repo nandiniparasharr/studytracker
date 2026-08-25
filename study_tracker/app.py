@@ -7,29 +7,37 @@ See ../setup.bat to install a Desktop shortcut instead.
 import sys
 import tkinter as tk
 
+import icons
+import storage
 import theme
 from dashboard import DashboardPage
+from pages import GoalsPage, ReportsPage, SessionsPage, SettingsPage, SubjectsPage
 from start_page import StartPage
 from timer_page import TimerPage
-from widgets import NavButton
+from widgets import NavButton, round_rect
 
 APP_TITLE = "Study Tracker"
-NAV_ITEMS = [
-    ("dashboard", "Dashboard", "▦"),
-    ("start", "Start", "▶"),
-    ("timer", "Timer", "⏱"),
-]
+SIDEBAR_W = 236
 
-FADE_STEPS = 5
-FADE_DELAY_MS = 12
-FADE_MIN_ALPHA = 0.6
+NAV_ITEMS = [
+    ("dashboard", "Dashboard", "dashboard"),
+    ("start", "Start", "play"),
+    ("timer", "Timer", "clock"),
+    ("sessions", "Sessions", "sessions"),
+    ("subjects", "Subjects", "tag"),
+    ("reports", "Reports", "reports"),
+]
+NAV_FOOTER = [
+    ("goals", "Goals", "goals"),
+    ("settings", "Settings", "settings"),
+]
 
 
 def _enable_windows_dpi_awareness():
-    """Without this, Windows treats the app as DPI-unaware and stretches
-    the whole rendered window to match display scaling - which is what
-    makes text, colors and edges look blurry (and costs real redraw
-    performance) on any scaled display, i.e. almost every modern laptop.
+    """Without this, Windows treats the app as DPI-unaware and bitmap-stretches
+    the whole window to match display scaling - which is what makes text and
+    edges look blurry (and costs redraw performance) on any scaled display,
+    i.e. almost every modern laptop.
     """
     if sys.platform != "win32":
         return
@@ -48,110 +56,127 @@ class StudyTrackerApp(tk.Tk):
         _enable_windows_dpi_awareness()
         super().__init__()
         self.title(APP_TITLE)
-        self.geometry("1100x700")
-        self.minsize(900, 600)
+        self.geometry("1360x900")
+        self.minsize(1060, 680)
         self.configure(bg=theme.BG)
         try:
             self.state("zoomed")
         except tk.TclError:
             pass
 
-        self._supports_alpha = True
-        try:
-            self.attributes("-alpha", 1.0)
-        except tk.TclError:
-            self._supports_alpha = False
-
         self.nav_buttons = {}
         self.pages = {}
         self._active_key = None
         self._dashboard_dirty = True
-        self._fade_token = 0
 
         self._build_sidebar()
         self._build_content()
         self.show_page("dashboard")
 
+    # ------------------------------------------------------------ sidebar
     def _build_sidebar(self):
-        sidebar = tk.Frame(self, bg=theme.NAVY_DARK, width=220)
+        sidebar = tk.Frame(self, bg=theme.SIDEBAR, width=SIDEBAR_W)
         sidebar.pack(side="left", fill="y")
         sidebar.pack_propagate(False)
 
-        brand = tk.Frame(sidebar, bg=theme.NAVY_DARK)
-        brand.pack(fill="x", pady=(28, 30), padx=20)
-        tk.Label(brand, text="Study", bg=theme.NAVY_DARK, fg="white",
-                 font=(theme.FONT_FAMILY, 16, "bold")).pack(anchor="w")
-        tk.Label(brand, text="TRACKER", bg=theme.NAVY_DARK, fg=theme.ORANGE,
-                 font=(theme.FONT_FAMILY, 11, "bold")).pack(anchor="w")
+        brand = tk.Frame(sidebar, bg=theme.SIDEBAR)
+        brand.pack(fill="x", padx=18, pady=(24, 22))
+        logo_row = tk.Frame(brand, bg=theme.SIDEBAR)
+        logo_row.pack(anchor="w")
+        icons.icon_canvas(logo_row, "book", 24, theme.SIDEBAR_TEXT_ACTIVE,
+                          theme.SIDEBAR).pack(side="left", padx=(0, 9))
+        tk.Label(logo_row, text="Study Tracker", bg=theme.SIDEBAR, fg=theme.SIDEBAR_TEXT_ACTIVE,
+                 font=(theme.FONT_FAMILY, 13, "bold")).pack(side="left")
+        tk.Label(brand, text="Focus. Track. Grow.", bg=theme.SIDEBAR, fg=theme.SIDEBAR_MUTED,
+                 font=(theme.FONT_FAMILY, 9)).pack(anchor="w", pady=(4, 0))
 
-        for key, label, icon in NAV_ITEMS:
-            btn = NavButton(sidebar, label, icon, command=lambda k=key: self.show_page(k))
-            btn.pack(fill="x")
+        nav = tk.Frame(sidebar, bg=theme.SIDEBAR)
+        nav.pack(fill="x", padx=18)
+        for key, label, icon_name in NAV_ITEMS:
+            btn = NavButton(nav, label, icon_name, command=lambda k=key: self.show_page(k))
+            btn.pack(fill="x", pady=1)
             self.nav_buttons[key] = btn
 
+        tk.Frame(sidebar, bg=theme.SIDEBAR_DIVIDER, height=1).pack(fill="x", padx=26, pady=14)
+
+        footer_nav = tk.Frame(sidebar, bg=theme.SIDEBAR)
+        footer_nav.pack(fill="x", padx=18)
+        for key, label, icon_name in NAV_FOOTER:
+            btn = NavButton(footer_nav, label, icon_name, command=lambda k=key: self.show_page(k))
+            btn.pack(fill="x", pady=1)
+            self.nav_buttons[key] = btn
+
+        self.streak_holder = tk.Frame(sidebar, bg=theme.SIDEBAR)
+        self.streak_holder.pack(side="bottom", fill="x", padx=18, pady=20)
+        self.streak_canvas = tk.Canvas(self.streak_holder, height=112, bg=theme.SIDEBAR,
+                                        highlightthickness=0, bd=0, width=1)
+        self.streak_canvas.pack(fill="x")
+        self.streak_canvas.bind("<Configure>", lambda _e: self._render_streak())
+
+    def _render_streak(self):
+        c = self.streak_canvas
+        c.delete("all")
+        w = c.winfo_width()
+        if w < 40:
+            return
+        h = 112
+        round_rect(c, 0, 0, w, h, 14, fill=theme.SIDEBAR_ACTIVE, outline="")
+
+        days = storage.current_streak(storage.load_sessions())
+        icons.draw(c, "flame", 16, 16, 16, "#E8A85C")
+        c.create_text(40, 24, text="Current Streak", anchor="w", fill=theme.SIDEBAR_TEXT,
+                      font=(theme.FONT_FAMILY, 9))
+        num = c.create_text(16, 58, text=str(days), anchor="w", fill="white",
+                            font=(theme.FONT_FAMILY, 22, "bold"))
+        num_right = c.bbox(num)[2]
+        c.create_text(num_right + 7, 63, text="day" if days == 1 else "days", anchor="w",
+                      fill=theme.SIDEBAR_TEXT, font=(theme.FONT_FAMILY, 10))
+        c.create_text(16, 90, text="Keep it going!", anchor="w", fill=theme.SIDEBAR_MUTED,
+                      font=(theme.FONT_FAMILY, 9))
+
+    # ------------------------------------------------------------ content
     def _build_content(self):
         content = tk.Frame(self, bg=theme.BG)
         content.pack(side="left", fill="both", expand=True)
         content.grid_rowconfigure(0, weight=1)
         content.grid_columnconfigure(0, weight=1)
 
+        changed = self._on_data_changed
         self.pages = {
-            "dashboard": DashboardPage(content),
-            "start": StartPage(content, on_session_saved=self._on_session_saved),
-            "timer": TimerPage(content, on_session_saved=self._on_session_saved),
+            "dashboard": DashboardPage(content, on_goto=self.show_page),
+            "start": StartPage(content, on_session_saved=changed),
+            "timer": TimerPage(content, on_session_saved=changed),
+            "sessions": SessionsPage(content, on_changed=changed),
+            "subjects": SubjectsPage(content, on_changed=changed),
+            "reports": ReportsPage(content, on_changed=changed),
+            "goals": GoalsPage(content, on_changed=changed),
+            "settings": SettingsPage(content, on_changed=changed),
         }
         for page in self.pages.values():
             page.grid(row=0, column=0, sticky="nsew")
 
     def show_page(self, key):
-        if key == self._active_key:
+        if key == self._active_key or key not in self.pages:
             return
         self._active_key = key
         for nav_key, btn in self.nav_buttons.items():
             btn.set_active(nav_key == key)
 
-        self._fade_token += 1
-        token = self._fade_token
+        page = self.pages[key]
+        # Every page is built once up front and simply raised, so switching
+        # is a single stacking-order change - no rebuild, no window-level
+        # transparency, and therefore nothing showing through from behind.
+        if key == "dashboard":
+            if self._dashboard_dirty:
+                page.refresh()
+                self._dashboard_dirty = False
+        elif hasattr(page, "on_show"):
+            page.on_show()
+        page.tkraise()
 
-        if not self._supports_alpha:
-            self._raise_page(key)
-            return
-        self._fade(key, 0, fading_out=True, token=token)
-
-    def _raise_page(self, key):
-        self.pages[key].tkraise()
-        if key == "dashboard" and self._dashboard_dirty:
-            self.pages["dashboard"].refresh()
-            self._dashboard_dirty = False
-
-    def _fade(self, key, step, fading_out, token):
-        # A newer show_page() call superseded this animation - stop here and
-        # let the newer chain own the alpha value (avoids overlapping fades
-        # from rapid clicks fighting each other or leaving the window dim).
-        if token != self._fade_token:
-            return
-
-        frac = step / FADE_STEPS
-        alpha = (1.0 - (1 - FADE_MIN_ALPHA) * frac) if fading_out else (FADE_MIN_ALPHA + (1 - FADE_MIN_ALPHA) * frac)
-        self._set_alpha(alpha)
-
-        if step >= FADE_STEPS:
-            if fading_out:
-                self._raise_page(key)
-                self.after(FADE_DELAY_MS, lambda: self._fade(key, 0, fading_out=False, token=token))
-            else:
-                self._set_alpha(1.0)
-            return
-        self.after(FADE_DELAY_MS, lambda: self._fade(key, step + 1, fading_out, token))
-
-    def _set_alpha(self, value):
-        try:
-            self.attributes("-alpha", value)
-        except tk.TclError:
-            pass
-
-    def _on_session_saved(self):
+    def _on_data_changed(self):
         self._dashboard_dirty = True
+        self._render_streak()
         if self._active_key == "dashboard":
             self.pages["dashboard"].refresh()
             self._dashboard_dirty = False

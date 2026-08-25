@@ -7,6 +7,7 @@ portable - no database server, no network calls.
 import json
 import os
 import uuid
+from datetime import date, datetime, timedelta
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 SESSIONS_FILE = os.path.join(DATA_DIR, "sessions.json")
@@ -15,12 +16,12 @@ SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 
 # Subjects are a color-coded extra, never required to start a session.
 DEFAULT_PALETTE = [
-    "#f5a524", "#3b82f6", "#22c55e", "#ef4444",
-    "#a855f7", "#14b8a6", "#eab308", "#ec4899",
+    "#5C2444", "#7D9B7E", "#E8A85C", "#C4638F",
+    "#B9A9C9", "#6B8CAE", "#D4886A", "#9C7BA8",
 ]
-UNSPECIFIED_COLOR = "#9ca3af"
+UNSPECIFIED_COLOR = "#B9A6B0"
 
-DEFAULT_SETTINGS = {"weekly_goal_hours": 20}
+DEFAULT_SETTINGS = {"weekly_goal_hours": 20, "display_name": ""}
 
 
 def _ensure_data_dir():
@@ -66,6 +67,12 @@ def save_session(subject, color, seconds, started_at, ended_at, kind):
     return session
 
 
+def delete_session(session_id):
+    sessions = [s for s in load_sessions() if s["id"] != session_id]
+    _save_json(SESSIONS_FILE, sessions)
+    return sessions
+
+
 def load_subjects():
     return _load_json(SUBJECTS_FILE, [])
 
@@ -75,6 +82,21 @@ def add_subject(name, color):
     if any(s["name"].lower() == name.lower() for s in subjects):
         return subjects
     subjects.append({"name": name, "color": color})
+    _save_json(SUBJECTS_FILE, subjects)
+    return subjects
+
+
+def delete_subject(name):
+    subjects = [s for s in load_subjects() if s["name"] != name]
+    _save_json(SUBJECTS_FILE, subjects)
+    return subjects
+
+
+def set_subject_color(name, color):
+    subjects = load_subjects()
+    for s in subjects:
+        if s["name"] == name:
+            s["color"] = color
     _save_json(SUBJECTS_FILE, subjects)
     return subjects
 
@@ -95,3 +117,58 @@ def load_settings():
 
 def save_settings(settings):
     _save_json(SETTINGS_FILE, settings)
+
+
+# ---------------------------------------------------------------- analytics
+
+def week_bounds(anchor=None):
+    """Monday-Sunday range containing `anchor` (defaults to today)."""
+    anchor = anchor or date.today()
+    start = anchor - timedelta(days=anchor.weekday())
+    return start, start + timedelta(days=6)
+
+
+def sessions_between(sessions, start, end):
+    return [s for s in sessions if start.isoformat() <= s["date"] <= end.isoformat()]
+
+
+def total_seconds(sessions):
+    return sum(s["seconds"] for s in sessions)
+
+
+def day_totals(sessions):
+    totals = {}
+    for s in sessions:
+        totals[s["date"]] = totals.get(s["date"], 0) + s["seconds"]
+    return totals
+
+
+def subject_totals(sessions):
+    totals = {}
+    for s in sessions:
+        entry = totals.setdefault(s["subject"], {"seconds": 0, "color": s["color"]})
+        entry["seconds"] += s["seconds"]
+    return totals
+
+
+def current_streak(sessions):
+    """Consecutive days (ending today or yesterday) with at least one session."""
+    logged = set(day_totals(sessions))
+    if not logged:
+        return 0
+    today = date.today()
+    cursor = today if today.isoformat() in logged else today - timedelta(days=1)
+    if cursor.isoformat() not in logged:
+        return 0
+    streak = 0
+    while cursor.isoformat() in logged:
+        streak += 1
+        cursor -= timedelta(days=1)
+    return streak
+
+
+def parse_time(value):
+    try:
+        return datetime.fromisoformat(value)
+    except (ValueError, TypeError):
+        return None

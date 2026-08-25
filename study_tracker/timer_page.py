@@ -5,11 +5,12 @@ from datetime import datetime
 
 import storage
 import theme
-from widgets import RoundedCard, SubjectPicker
+from widgets import PillButton, RoundedCard, SubjectPicker, round_rect
 
 MIN_SECONDS_TO_SAVE = 5
-TICK_MS = 500
+TICK_MS = 250
 DEFAULT_MINUTES = 25
+PRESETS = [15, 25, 45, 60]
 
 
 class TimerPage(tk.Frame):
@@ -22,84 +23,110 @@ class TimerPage(tk.Frame):
         self.start_time = None
         self._tick_mark = None
         self._after_id = None
+        self.minutes = DEFAULT_MINUTES
+        self._preset_chips = {}
         self._build()
 
     def _build(self):
-        pad = 20
-        tk.Label(self, text="Timer", bg=theme.BG, fg=theme.TEXT_DARK,
-                 font=(theme.FONT_FAMILY, 18, "bold")).pack(anchor="w", padx=pad, pady=(pad, 12))
+        pad = 26
+        head = tk.Frame(self, bg=theme.BG)
+        head.pack(fill="x", padx=pad, pady=(24, 18))
+        tk.Label(head, text="Timer", bg=theme.BG, fg=theme.TEXT,
+                 font=(theme.FONT_FAMILY, 25, "bold")).pack(anchor="w")
+        tk.Label(head, text="Set a block and focus until it ends", bg=theme.BG,
+                 fg=theme.TEXT_MUTED, font=(theme.FONT_FAMILY, 11)).pack(anchor="w", pady=(4, 0))
 
-        card = RoundedCard(self, bg=theme.CARD, radius=18)
+        card = RoundedCard(self)
         card.pack(fill="both", expand=True, padx=pad, pady=(0, pad))
         body = tk.Frame(card.body, bg=theme.CARD)
         body.place(relx=0.5, rely=0.5, anchor="center")
 
         self.subject_picker = SubjectPicker(body)
-        self.subject_picker.pack(pady=(0, 16))
+        self.subject_picker.pack(pady=(0, 20))
 
-        set_row = tk.Frame(body, bg=theme.CARD)
-        set_row.pack(pady=6)
-        tk.Label(set_row, text="Minutes:", bg=theme.CARD, fg=theme.TEXT_MUTED,
-                 font=(theme.FONT_FAMILY, 10)).pack(side="left", padx=(0, 6))
-        self.minutes_var = tk.StringVar(value=str(DEFAULT_MINUTES))
-        self.minutes_entry = tk.Spinbox(set_row, from_=1, to=300, textvariable=self.minutes_var,
-                                         width=5, font=(theme.FONT_FAMILY, 10), justify="center")
-        self.minutes_entry.pack(side="left")
+        chips = tk.Frame(body, bg=theme.CARD)
+        chips.pack(pady=(0, 18))
+        for m in PRESETS:
+            chip = tk.Canvas(chips, width=62, height=34, bg=theme.CARD,
+                             highlightthickness=0, cursor="hand2")
+            chip.pack(side="left", padx=4)
+            chip.bind("<Button-1>", lambda _e, mm=m: self.set_minutes(mm))
+            self._preset_chips[m] = chip
 
-        self.time_label = tk.Label(body, text=f"{DEFAULT_MINUTES:02d}:00", bg=theme.CARD, fg=theme.NAVY_DARK,
-                                    font=(theme.FONT_FAMILY, 54, "bold"))
-        self.time_label.pack(pady=16)
+        self.time_label = tk.Label(body, text=f"{DEFAULT_MINUTES:02d}:00", bg=theme.CARD,
+                                    fg=theme.TEXT, font=(theme.FONT_FAMILY, 58, "bold"))
+        self.time_label.pack()
 
-        btn_row = tk.Frame(body, bg=theme.CARD)
-        btn_row.pack(pady=10)
-        self.start_btn = tk.Button(btn_row, text="Start", command=self.toggle, width=11,
-                                    bg=theme.ORANGE, fg="white", bd=0, font=(theme.FONT_FAMILY, 11, "bold"),
-                                    activebackground=theme.ORANGE_DARK, activeforeground="white",
-                                    cursor="hand2", pady=8)
+        self.status_label = tk.Label(body, text="Ready when you are.", bg=theme.CARD,
+                                      fg=theme.TEXT_MUTED, font=(theme.FONT_FAMILY, 10))
+        self.status_label.pack(pady=(6, 22))
+
+        btns = tk.Frame(body, bg=theme.CARD)
+        btns.pack()
+        self.start_btn = PillButton(btns, "Start", self.toggle, kind="primary", width=140)
         self.start_btn.pack(side="left", padx=5)
-        self.stop_btn = tk.Button(btn_row, text="Stop & Save", command=self.stop_and_save, width=11,
-                                   bg=theme.BG, fg=theme.TEXT_DARK, bd=0, font=(theme.FONT_FAMILY, 11, "bold"),
-                                   activebackground=theme.BORDER, cursor="hand2", pady=8, state="disabled")
+        self.stop_btn = PillButton(btns, "Stop & Save", self.stop_and_save, kind="ghost", width=140)
         self.stop_btn.pack(side="left", padx=5)
-        self.reset_btn = tk.Button(btn_row, text="Reset", command=self.reset, width=11,
-                                    bg=theme.BG, fg=theme.TEXT_DARK, bd=0, font=(theme.FONT_FAMILY, 11, "bold"),
-                                    activebackground=theme.BORDER, cursor="hand2", pady=8)
+        self.stop_btn.set_enabled(False)
+        self.reset_btn = PillButton(btns, "Reset", self.reset, kind="ghost", width=110)
         self.reset_btn.pack(side="left", padx=5)
+
+        self._render_chips()
+
+    def on_show(self):
+        self.subject_picker.refresh_subjects()
+
+    def _render_chips(self):
+        for m, chip in self._preset_chips.items():
+            chip.delete("all")
+            active = (m == self.minutes) and not self.running
+            fill = theme.PLUM if active else theme.CARD
+            outline = "" if active else theme.BORDER
+            fg = "white" if active else theme.TEXT_MUTED
+            round_rect(chip, 1, 1, 61, 33, 11, fill=fill, outline=outline,
+                       width=1 if outline else 0)
+            chip.create_text(31, 17, text=f"{m}m", fill=fg, font=(theme.FONT_FAMILY, 10, "bold"))
+
+    def set_minutes(self, minutes):
+        if self.running or self.remaining > 0:
+            return
+        self.minutes = minutes
+        self.time_label.config(text=f"{minutes:02d}:00")
+        self._render_chips()
 
     def toggle(self):
         if not self.running:
             if self.remaining <= 0:
-                try:
-                    minutes = max(1, int(self.minutes_var.get()))
-                except ValueError:
-                    minutes = DEFAULT_MINUTES
-                self.total_seconds = minutes * 60
+                self.total_seconds = self.minutes * 60
                 self.remaining = self.total_seconds
                 self.start_time = datetime.now()
             self.running = True
             self._tick_mark = datetime.now()
-            self.start_btn.config(text="Pause", bg=theme.NAVY)
-            self.stop_btn.config(state="normal")
-            self.minutes_entry.config(state="disabled")
+            self.start_btn.set_text("Pause")
+            self.stop_btn.set_enabled(True)
+            self.status_label.config(text="Focus mode - timer running.")
             self.subject_picker.lock()
+            self._render_chips()
             self._tick()
         else:
             self._sync_remaining()
             self.running = False
-            self.start_btn.config(text="Resume", bg=theme.ORANGE)
+            self.start_btn.set_text("Resume")
+            self.status_label.config(text="Paused.")
             self._cancel_tick()
 
     def _sync_remaining(self):
         now = datetime.now()
-        passed = (now - self._tick_mark).total_seconds()
-        self.remaining = max(0.0, self.remaining - passed)
+        self.remaining = max(0.0, self.remaining - (now - self._tick_mark).total_seconds())
         self._tick_mark = now
 
     def _tick(self):
         if not self.running:
             return
         self._sync_remaining()
-        self.time_label.config(text=self._fmt(self.remaining))
+        text = self._fmt(self.remaining)
+        if text != self.time_label.cget("text"):
+            self.time_label.config(text=text)
         if self.remaining <= 0:
             self._finish()
             return
@@ -108,10 +135,10 @@ class TimerPage(tk.Frame):
     def _finish(self):
         self.running = False
         self._cancel_tick()
-        studied = self.total_seconds
-        self._save_if_worth_it(studied)
+        self._save_if_worth_it(self.total_seconds)
         self._beep()
         self.reset()
+        self.status_label.config(text="Block complete - saved to your log.")
 
     def stop_and_save(self):
         if self.running:
@@ -119,15 +146,19 @@ class TimerPage(tk.Frame):
             self.running = False
             self._cancel_tick()
         studied = self.total_seconds - self.remaining
-        self._save_if_worth_it(studied)
+        saved = self._save_if_worth_it(studied)
         self.reset()
+        self.status_label.config(text="Saved to your log." if saved else "Too short to save.")
 
     def _save_if_worth_it(self, studied_seconds):
         if studied_seconds >= MIN_SECONDS_TO_SAVE and self.start_time:
             subject, color = self.subject_picker.get_selection()
-            storage.save_session(subject, color, studied_seconds, self.start_time, datetime.now(), "timer")
+            storage.save_session(subject, color, studied_seconds, self.start_time,
+                                 datetime.now(), "timer")
             if self.on_session_saved:
                 self.on_session_saved()
+            return True
+        return False
 
     @staticmethod
     def _beep():
@@ -148,19 +179,16 @@ class TimerPage(tk.Frame):
         self.total_seconds = 0
         self.remaining = 0
         self.start_time = None
-        try:
-            minutes = max(1, int(self.minutes_var.get()))
-        except ValueError:
-            minutes = DEFAULT_MINUTES
-        self.time_label.config(text=f"{minutes:02d}:00")
-        self.start_btn.config(text="Start", bg=theme.ORANGE)
-        self.stop_btn.config(state="disabled")
-        self.minutes_entry.config(state="normal")
+        self.time_label.config(text=f"{self.minutes:02d}:00")
+        self.start_btn.set_text("Start")
+        self.stop_btn.set_enabled(False)
+        self.status_label.config(text="Ready when you are.")
         self.subject_picker.unlock()
+        self._render_chips()
 
     @staticmethod
     def _fmt(seconds):
-        seconds = int(seconds)
+        seconds = int(round(seconds))
         h, rem = divmod(seconds, 3600)
         m, s = divmod(rem, 60)
         if h:

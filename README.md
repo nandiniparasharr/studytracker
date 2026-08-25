@@ -20,25 +20,30 @@ You can also run it directly at any time with:
 python study_tracker\app.py
 ```
 
-## Using the app
+## Sections
 
-The sidebar has three sections:
-
-- **Dashboard** - today's and this week's study hours, a breakdown of time
-  per subject (color-coded), a calendar highlighting which days you
-  studied (click a day to see that day's sessions), and your most recent
-  sessions.
-- **Start** - a stopwatch. Press Start when you begin studying, Pause if
-  you take a break, and **Stop & Save** to log the session.
-- **Timer** - a countdown timer for focused study blocks (e.g. Pomodoro
-  sessions). Set the minutes, press Start, and it logs the session
-  automatically when it finishes (or press **Stop & Save** to log a
-  partial block early).
+- **Dashboard** - greeting, this week's totals (today, week, session count,
+  average session) with week-on-week deltas, a bar chart of daily hours, a
+  study calendar (a ring on today, a colored dot on any day you studied -
+  darker means more hours), your subject split as a donut, recent sessions,
+  and weekly-goal progress. Use the date range control in the top right to
+  look back at earlier weeks, or click a calendar day to see just that day.
+- **Start** - a stopwatch. Press Start when you begin studying, Pause for a
+  break, and **Stop & Save** to log the session.
+- **Timer** - a countdown for focused blocks (15/25/45/60m presets). Logs
+  automatically when it finishes, or **Stop & Save** to log a partial block.
+- **Sessions** - the full log, with the option to delete any entry.
+- **Subjects** - add or remove subjects and click a swatch to change its
+  color.
+- **Reports** - this week vs. last week vs. this month, an eight-week trend,
+  and all-time totals per subject.
+- **Goals** - set your weekly target and see your current streak.
+- **Settings** - display name for the greeting, where your data is stored,
+  and a way to clear the log.
 
 **Subjects are optional.** On the Start and Timer screens you can pick a
-subject (or add a new one with `+ New`) purely to color-code the session
-on the dashboard - you are never required to set one to start tracking
-time.
+subject (or add one with `+`) purely to color-code the session on the
+dashboard - you are never required to set one to start tracking time.
 
 ## Data
 
@@ -55,8 +60,10 @@ study_tracker/
   dashboard.py             Dashboard page
   start_page.py            Start page (stopwatch)
   timer_page.py            Timer page (countdown)
-  widgets.py                rounded cards, sidebar nav, calendar, subject picker
-  storage.py                JSON persistence
-  theme.py                  shared colors/fonts
-  data/                      created at runtime (git-ignored)
+  pages.py                 Sessions, Subjects, Reports, Goals, Settings
+  widgets.py               cards, nav, charts, calendar, buttons, scrolling
+  icons.py                 vector line icons drawn on canvas
+  storage.py               JSON persistence and analytics helpers
+  theme.py                 shared colors/fonts
+  data/                    created at runtime (git-ignored)
 ```

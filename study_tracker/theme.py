@@ -1,20 +1,48 @@
-"""Shared colors and fonts for the Study Tracker UI."""
+"""Shared colors and fonts for the Study Tracker UI (plum / cream theme)."""
 
-NAVY_DARK = "#16233f"
-NAVY = "#1d2f52"
-NAVY_LIGHT = "#28406b"
+# Sidebar
+SIDEBAR = "#33182B"
+SIDEBAR_ACTIVE = "#4E2742"
+SIDEBAR_HOVER = "#42203899"
+SIDEBAR_TEXT = "#C9B3C1"
+SIDEBAR_TEXT_ACTIVE = "#FFFFFF"
+SIDEBAR_MUTED = "#9C8394"
+SIDEBAR_DIVIDER = "#4A2340"
 
-BG = "#eef1f7"
-CARD = "#ffffff"
-BORDER = "#e5e7eb"
+# Surfaces
+BG = "#FAF7F8"
+CARD = "#FFFFFF"
+BORDER = "#EFE6EA"
+TRACK = "#F0E7EB"
 
-ORANGE = "#f5a524"
-ORANGE_DARK = "#dc8f12"
+# Brand
+PLUM = "#5C2444"
+PLUM_MID = "#7B3B5E"
+PLUM_LIGHT = "#8E4A6B"
+PLUM_SOFT = "#F3E6EC"
+PINK = "#C4638F"
 
-TEXT_DARK = "#1f2937"
-TEXT_MUTED = "#6b7280"
+# Text
+TEXT = "#2E1B2E"
+TEXT_MUTED = "#8A7480"
+TEXT_FAINT = "#B9A6B0"
 
-GREEN = "#22c55e"
-RED = "#ef4444"
+# Feedback
+GREEN = "#5E8C63"
 
 FONT_FAMILY = "Segoe UI"
+
+# Calendar intensity ramp (matches the dashboard legend)
+CAL_NONE = None
+CAL_LOW = "#EBC7D8"
+CAL_MED = "#C4739B"
+CAL_HIGH = "#8E4A6B"
+CAL_MAX = "#5C2444"
+
+CAL_LEGEND = [
+    ("No study", CAL_NONE),
+    ("< 1h", CAL_LOW),
+    ("1 - 2h", CAL_MED),
+    ("2 - 3h", CAL_HIGH),
+    ("> 3h", CAL_MAX),
+]
