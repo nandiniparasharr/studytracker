@@ -56,8 +56,9 @@ class StudyTrackerApp(tk.Tk):
         _enable_windows_dpi_awareness()
         super().__init__()
         self.title(APP_TITLE)
-        self.geometry("1360x900")
-        self.minsize(1060, 680)
+        self.geometry("1400x900")
+        # Tall enough that the dashboard always fits without scrolling.
+        self.minsize(1120, DashboardPage.MIN_H + 24)
         self.configure(bg=theme.BG)
         try:
             self.state("zoomed")

@@ -78,7 +78,7 @@ class SessionsPage(_Page):
         header = tk.Frame(wrap, bg=theme.CARD)
         header.pack(fill="x", pady=(0, 8))
         for text, width, side in (("SUBJECT", 16, "left"), ("DATE", 14, "left"),
-                                   ("TIME", 18, "left"), ("MODE", 10, "left")):
+                                   ("TIME", 18, "left"), ("MODE", 20, "left")):
             tk.Label(header, text=text, bg=theme.CARD, fg=theme.TEXT_FAINT, width=width,
                      anchor="w", font=(theme.FONT_FAMILY, 8, "bold")).pack(side=side)
         tk.Label(header, text="LENGTH", bg=theme.CARD, fg=theme.TEXT_FAINT,
@@ -114,15 +114,20 @@ class SessionsPage(_Page):
         tk.Label(row, text=span, bg=theme.CARD, fg=theme.TEXT_MUTED,
                  font=(theme.FONT_FAMILY, 10), width=18, anchor="w").pack(side="left")
 
-        tk.Label(row, text=session.get("kind", "").title(), bg=theme.CARD, fg=theme.TEXT_MUTED,
-                 font=(theme.FONT_FAMILY, 10), width=10, anchor="w").pack(side="left")
+        mode = session.get("kind", "").title()
+        if not storage.counts_toward_study(session):
+            mode += "  ·  not counted"
+        tk.Label(row, text=mode, bg=theme.CARD,
+                 fg=theme.TEXT_MUTED if storage.counts_toward_study(session) else theme.TEXT_FAINT,
+                 font=(theme.FONT_FAMILY, 10), width=20, anchor="w").pack(side="left")
 
         KebabButton(row, [
             ("Edit", lambda s=session: self._edit(s)),
             ("-", None),
             ("Delete", lambda sid=session["id"]: self._delete(sid)),
         ]).pack(side="right")
-        tk.Label(row, text=fmt_hm(session["seconds"]), bg=theme.CARD, fg=theme.TEXT,
+        tk.Label(row, text=fmt_hm(session["seconds"]), bg=theme.CARD,
+                 fg=theme.TEXT if storage.counts_toward_study(session) else theme.TEXT_FAINT,
                  font=(theme.FONT_FAMILY, 10, "bold")).pack(side="right", padx=(0, 16))
 
     def _edit(self, session):
@@ -459,7 +464,8 @@ class SettingsPage(_Page):
         tk.Label(wrap, text="Your log", bg=theme.CARD, fg=theme.TEXT,
                  font=(theme.FONT_FAMILY, 11, "bold")).pack(anchor="w")
         tk.Label(wrap,
-                 text=f"{len(sessions)} sessions · {fmt_hm(storage.total_seconds(sessions))} tracked in total",
+                 text=f"{len(storage.counted(sessions))} study sessions · "
+                      f"{fmt_hm(storage.total_seconds(sessions))} tracked in total",
                  bg=theme.CARD, fg=theme.TEXT_MUTED,
                  font=(theme.FONT_FAMILY, 9)).pack(anchor="w", pady=(4, 10))
         PillButton(wrap, "Clear all sessions", self._clear_sessions, kind="ghost",

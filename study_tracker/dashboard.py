@@ -8,9 +8,9 @@ import icons
 import storage
 import theme
 from widgets import (BarChart, DonutChart, PillButton, ProgressBar, RoundedCard,
-                     ScrollFrame, StatCard, StudyCalendar, fmt_hm, round_rect)
+                     StatCard, StudyCalendar, fmt_hm, round_rect)
 
-FOOTER_QUOTE = "Discipline today, freedom tomorrow."
+FOOTER_QUOTE = "Dreams don't work unless you do."
 
 
 def greeting_for(hour):
@@ -32,6 +32,13 @@ def display_name():
 
 
 class DashboardPage(tk.Frame):
+    # Vertical budget for "fits on one screen with no scrolling".
+    STATS_H = 108          # stat card row (measured from StatCard's content)
+    MID_MIN_H = 300        # chart + calendar row
+    BOTTOM_MIN_H = 232     # subjects + recent + goal row
+    CHROME_H = 150         # header + footer + the gaps between rows
+    MIN_H = STATS_H + MID_MIN_H + BOTTOM_MIN_H + CHROME_H
+
     def __init__(self, parent, on_goto=None):
         super().__init__(parent, bg=theme.BG)
         self.on_goto = on_goto
@@ -42,62 +49,68 @@ class DashboardPage(tk.Frame):
 
     # ------------------------------------------------------------- layout
     def _build(self):
-        scroller = ScrollFrame(self, bg=theme.BG)
-        scroller.pack(fill="both", expand=True)
-        root = scroller.inner
+        # The dashboard is a fixed set of panels, so it fills the window and
+        # lets the two card rows absorb whatever height is going, rather than
+        # scrolling. Every row below has a minsize; the window's own minsize
+        # is set from their sum so nothing can be squashed out of view.
+        root = tk.Frame(self, bg=theme.BG)
+        root.pack(fill="both", expand=True)
+        root.grid_columnconfigure(0, weight=1)
+        root.grid_rowconfigure(2, weight=3, minsize=self.MID_MIN_H)
+        root.grid_rowconfigure(3, weight=2, minsize=self.BOTTOM_MIN_H)
         pad = 26
 
         header = tk.Frame(root, bg=theme.BG)
-        header.pack(fill="x", padx=pad, pady=(24, 18))
+        header.grid(row=0, column=0, sticky="ew", padx=pad, pady=(16, 12))
 
         left = tk.Frame(header, bg=theme.BG)
         left.pack(side="left")
         self.greeting_label = tk.Label(left, text="", bg=theme.BG, fg=theme.TEXT,
-                                        font=(theme.FONT_FAMILY, 25, "bold"))
+                                        font=(theme.FONT_FAMILY, 22, "bold"))
         self.greeting_label.pack(anchor="w")
         tk.Label(left, text="Here's your study overview", bg=theme.BG, fg=theme.TEXT_MUTED,
-                 font=(theme.FONT_FAMILY, 11)).pack(anchor="w", pady=(4, 0))
+                 font=(theme.FONT_FAMILY, 10)).pack(anchor="w", pady=(2, 0))
 
-        self.range_pill = tk.Canvas(header, width=290, height=44, bg=theme.BG,
+        self.range_pill = tk.Canvas(header, width=290, height=42, bg=theme.BG,
                                      highlightthickness=0, cursor="hand2")
         self.range_pill.pack(side="right")
         self.range_pill.bind("<Button-1>", self._on_range_click)
 
         stats = tk.Frame(root, bg=theme.BG)
-        stats.pack(fill="x", padx=pad)
+        stats.grid(row=1, column=0, sticky="ew", padx=pad)
         self.stat_holders = []
         for i in range(4):
             holder = tk.Frame(stats, bg=theme.BG)
             holder.grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 12, 0))
             stats.grid_columnconfigure(i, weight=1, uniform="stat")
             self.stat_holders.append(holder)
-        stats.grid_rowconfigure(0, minsize=118)
+        stats.grid_rowconfigure(0, minsize=self.STATS_H)
 
         mid = tk.Frame(root, bg=theme.BG)
-        mid.pack(fill="both", expand=True, padx=pad, pady=(18, 0))
+        mid.grid(row=2, column=0, sticky="nsew", padx=pad, pady=(12, 0))
         mid.grid_columnconfigure(0, weight=5, uniform="mid")
         mid.grid_columnconfigure(1, weight=4, uniform="mid")
-        mid.grid_rowconfigure(0, minsize=382)
+        mid.grid_rowconfigure(0, weight=1)
 
         chart_card = RoundedCard(mid)
         chart_card.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
         chart_wrap = tk.Frame(chart_card.body, bg=theme.CARD)
-        chart_wrap.pack(fill="both", expand=True, padx=20, pady=18)
+        chart_wrap.pack(fill="both", expand=True, padx=20, pady=16)
         tk.Label(chart_wrap, text="Study Time This Week", bg=theme.CARD, fg=theme.TEXT,
                  font=(theme.FONT_FAMILY, 13, "bold")).pack(anchor="w")
         self.bar_chart = BarChart(chart_wrap)
-        self.bar_chart.pack(fill="both", expand=True, pady=(12, 0))
+        self.bar_chart.pack(fill="both", expand=True, pady=(10, 0))
 
         cal_card = RoundedCard(mid)
         cal_card.grid(row=0, column=1, sticky="nsew")
         self.calendar = StudyCalendar(cal_card.body, on_day_click=self._on_day_click)
-        self.calendar.pack(fill="both", expand=True, padx=20, pady=18)
+        self.calendar.pack(fill="both", expand=True, padx=20, pady=16)
 
         bottom = tk.Frame(root, bg=theme.BG)
-        bottom.pack(fill="both", expand=True, padx=pad, pady=(18, 0))
+        bottom.grid(row=3, column=0, sticky="nsew", padx=pad, pady=(12, 0))
         for i, weight in enumerate((4, 4, 4)):
             bottom.grid_columnconfigure(i, weight=weight, uniform="bot")
-        bottom.grid_rowconfigure(0, minsize=286)
+        bottom.grid_rowconfigure(0, weight=1)
 
         self.subjects_card = RoundedCard(bottom)
         self.subjects_card.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
@@ -109,7 +122,7 @@ class DashboardPage(tk.Frame):
         self.goal_card.grid(row=0, column=2, sticky="nsew")
 
         footer = tk.Frame(root, bg=theme.BG)
-        footer.pack(fill="x", pady=(22, 20))
+        footer.grid(row=4, column=0, sticky="ew", pady=(10, 12))
         strip = tk.Frame(footer, bg=theme.BG)
         strip.pack()
         tk.Label(strip, text=FOOTER_QUOTE, bg=theme.BG, fg=theme.TEXT_MUTED,
@@ -143,7 +156,7 @@ class DashboardPage(tk.Frame):
     def _render_range_pill(self, start, end):
         c = self.range_pill
         c.delete("all")
-        w, h = 290, 44
+        w, h = 290, 42
         round_rect(c, 1, 1, w - 1, h - 1, 12, fill=theme.CARD, outline=theme.BORDER, width=1)
         icons.draw(c, "calendar", 14, 13, 18, theme.TEXT_MUTED)
         # %-d is not portable (Windows strftime rejects it), so strip the
@@ -167,19 +180,25 @@ class DashboardPage(tk.Frame):
 
     def _render_stats(self, week, prev_week):
         today_str = date.today().isoformat()
-        today_secs = sum(s["seconds"] for s in self._sessions if s["date"] == today_str)
+        today_secs = sum(s["seconds"] for s in storage.counted(self._sessions)
+                         if s["date"] == today_str)
         y_str = (date.today() - timedelta(days=1)).isoformat()
-        yest_secs = sum(s["seconds"] for s in self._sessions if s["date"] == y_str)
+        yest_secs = sum(s["seconds"] for s in storage.counted(self._sessions)
+                        if s["date"] == y_str)
 
+        # Blocks flagged "not study time" stay out of every figure here.
+        counted_week = storage.counted(week)
+        counted_prev = storage.counted(prev_week)
         week_secs = storage.total_seconds(week)
         prev_secs = storage.total_seconds(prev_week)
-        avg = week_secs / len(week) if week else 0
-        prev_avg = prev_secs / len(prev_week) if prev_week else 0
+        avg = week_secs / len(counted_week) if counted_week else 0
+        prev_avg = prev_secs / len(counted_prev) if counted_prev else 0
 
         cards = [
             ("alarm", "Today", fmt_hm(today_secs), self._pct_delta(today_secs, yest_secs, "vs yesterday")),
             ("calendar", "This Week", fmt_hm(week_secs), self._pct_delta(week_secs, prev_secs, "vs last week")),
-            ("people", "Sessions", str(len(week)), self._count_delta(len(week), len(prev_week), "vs last week")),
+            ("people", "Sessions", str(len(counted_week)),
+             self._count_delta(len(counted_week), len(counted_prev), "vs last week")),
             ("clock", "Avg. Session", fmt_hm(avg), self._abs_delta(avg, prev_avg, "vs last week")),
         ]
 

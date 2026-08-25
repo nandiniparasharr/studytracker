@@ -41,8 +41,12 @@ double-clicking `study_tracker\app.py`, or right-click that file and choose
   look back at earlier weeks, or click a calendar day to see just that day.
 - **Start** - a stopwatch. Press Start when you begin studying, Pause for a
   break, and **Stop & Save** to log the session.
-- **Timer** - a countdown for focused blocks (15/25/45/60m presets). Logs
-  automatically when it finishes, or **Stop & Save** to log a partial block.
+- **Timer** - a countdown for focused blocks (15/25/45/60m presets, or
+  **Custom** for any length). Logs automatically when it finishes, or
+  **Stop & Save** to log a partial block. The **Count as study time**
+  switch lets you run a block that stays in your log but is left out of
+  every total - handy for breaks or admin. You can flip that flag later by
+  editing the session.
 - **Sessions** - the full log, with the option to delete any entry.
 - **Subjects** - add or remove subjects and click a swatch to change its
   color.

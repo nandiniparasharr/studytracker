@@ -64,7 +64,10 @@ def load_sessions():
     return _load_json(SESSIONS_FILE, [])
 
 
-def save_session(subject, color, seconds, started_at, ended_at, kind):
+def save_session(subject, color, seconds, started_at, ended_at, kind, counts=True):
+    """`counts=False` logs the block but keeps it out of every study total -
+    for breaks, admin, anything you want on the record but not in the hours.
+    """
     sessions = load_sessions()
     session = {
         "id": uuid.uuid4().hex,
@@ -75,6 +78,7 @@ def save_session(subject, color, seconds, started_at, ended_at, kind):
         "ended_at": ended_at.isoformat(timespec="seconds"),
         "date": started_at.date().isoformat(),
         "kind": kind,
+        "counts": bool(counts),
     }
     sessions.append(session)
     _save_json(SESSIONS_FILE, sessions)
@@ -87,13 +91,15 @@ def delete_session(session_id):
     return sessions
 
 
-def update_session(session_id, subject=None, color=None, seconds=None):
+def update_session(session_id, subject=None, color=None, seconds=None, counts=None):
     sessions = load_sessions()
     for s in sessions:
         if s["id"] != session_id:
             continue
         if subject is not None:
             s["subject"] = subject
+        if counts is not None:
+            s["counts"] = bool(counts)
         if color is not None:
             s["color"] = color
         if seconds is not None:
@@ -188,24 +194,33 @@ def week_bounds(anchor=None):
     return start, start + timedelta(days=6)
 
 
+def counts_toward_study(session):
+    """Sessions saved before this flag existed are study time."""
+    return session.get("counts", True)
+
+
+def counted(sessions):
+    return [s for s in sessions if counts_toward_study(s)]
+
+
 def sessions_between(sessions, start, end):
     return [s for s in sessions if start.isoformat() <= s["date"] <= end.isoformat()]
 
 
 def total_seconds(sessions):
-    return sum(s["seconds"] for s in sessions)
+    return sum(s["seconds"] for s in counted(sessions))
 
 
 def day_totals(sessions):
     totals = {}
-    for s in sessions:
+    for s in counted(sessions):
         totals[s["date"]] = totals.get(s["date"], 0) + s["seconds"]
     return totals
 
 
 def subject_totals(sessions):
     totals = {}
-    for s in sessions:
+    for s in counted(sessions):
         entry = totals.setdefault(s["subject"], {"seconds": 0, "color": s["color"]})
         entry["seconds"] += s["seconds"]
     return totals

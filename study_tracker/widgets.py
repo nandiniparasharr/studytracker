@@ -143,26 +143,26 @@ class StatCard(RoundedCard):
     def __init__(self, parent, icon_name, label, value, delta=None):
         super().__init__(parent, radius=16)
         wrap = tk.Frame(self.body, bg=theme.CARD)
-        wrap.pack(fill="both", expand=True, padx=18, pady=16)
+        wrap.pack(fill="both", expand=True, padx=16, pady=13)
 
         top = tk.Frame(wrap, bg=theme.CARD)
         top.pack(fill="x", anchor="w")
 
-        bubble = tk.Canvas(top, width=44, height=44, bg=theme.CARD, highlightthickness=0)
-        bubble.create_oval(0, 0, 43, 43, fill=theme.ACCENT_SOFT, outline="")
-        icons.draw(bubble, icon_name, 12, 12, 20, theme.ACCENT)
+        bubble = tk.Canvas(top, width=38, height=38, bg=theme.CARD, highlightthickness=0)
+        bubble.create_oval(0, 0, 37, 37, fill=theme.ACCENT_SOFT, outline="")
+        icons.draw(bubble, icon_name, 10, 10, 18, theme.ACCENT)
         bubble.pack(side="left")
 
         right = tk.Frame(top, bg=theme.CARD)
-        right.pack(side="left", padx=(12, 0), anchor="n")
+        right.pack(side="left", padx=(11, 0), anchor="n")
         tk.Label(right, text=label, bg=theme.CARD, fg=theme.TEXT_MUTED,
-                 font=(theme.FONT_FAMILY, 10)).pack(anchor="w")
+                 font=(theme.FONT_FAMILY, 9)).pack(anchor="w")
         self.value_label = tk.Label(right, text=value, bg=theme.CARD, fg=theme.TEXT,
-                                     font=(theme.FONT_FAMILY, 19, "bold"))
-        self.value_label.pack(anchor="w", pady=(1, 0))
+                                     font=(theme.FONT_FAMILY, 17, "bold"))
+        self.value_label.pack(anchor="w")
 
         self.delta_frame = tk.Frame(wrap, bg=theme.CARD)
-        self.delta_frame.pack(anchor="w", pady=(10, 0))
+        self.delta_frame.pack(anchor="w", pady=(8, 0))
         if delta:
             self._render_delta(delta)
 
@@ -303,7 +303,8 @@ class StudyCalendar(tk.Frame):
     with logged study time (darker = more hours), plus an intensity legend.
     """
 
-    CELL_H = 46
+    MIN_CELL_H = 34
+    MAX_CELL_H = 50
     HEADER_H = 26
 
     def __init__(self, parent, bg=theme.CARD, on_day_click=None):
@@ -400,8 +401,14 @@ class StudyCalendar(tk.Frame):
         weeks = self._weeks_needed(first)
         top = self.HEADER_H
 
+        # Share out whatever height the card gave us across the week rows,
+        # so the calendar fills its panel instead of forcing a fixed size.
+        avail = c.winfo_height() - top
+        cell_h = avail / weeks if avail > 0 else self.MIN_CELL_H
+        cell_h = max(self.MIN_CELL_H, min(self.MAX_CELL_H, cell_h))
+
         for week in range(weeks):
-            row_top = top + week * self.CELL_H
+            row_top = top + week * cell_h
             if week:
                 c.create_line(0, row_top, w, row_top, fill=theme.BORDER)
             for col in range(7):
@@ -409,17 +416,18 @@ class StudyCalendar(tk.Frame):
                 in_month = day.month == self.month
                 day_str = day.isoformat()
                 cx = col_w * (col + 0.5)
-                cy = row_top + self.CELL_H / 2
+                cy = row_top + cell_h / 2
                 seconds = self.day_totals.get(day_str, 0)
                 is_today = day_str == today_str
                 is_selected = day_str == self.selected_day
 
+                r = min(17, cell_h / 2 - 2)
                 if is_selected:
-                    c.create_oval(cx - 17, cy - 17, cx + 17, cy + 17,
+                    c.create_oval(cx - r, cy - r, cx + r, cy + r,
                                   fill=theme.ACCENT_LIGHT, outline="")
                     fg = "white"
                 elif is_today:
-                    c.create_oval(cx - 17, cy - 17, cx + 17, cy + 17,
+                    c.create_oval(cx - r, cy - r, cx + r, cy + r,
                                   fill=theme.ACCENT, outline="")
                     fg = "white"
                 elif not in_month:
@@ -432,15 +440,12 @@ class StudyCalendar(tk.Frame):
                               font=(theme.FONT_FAMILY, 12, weight))
 
                 if seconds > 0 and not (is_today or is_selected):
-                    c.create_oval(cx - 2.5, cy + 12, cx + 2.5, cy + 17,
+                    dot_y = cy + min(12, cell_h / 2 - 5)
+                    c.create_oval(cx - 2.5, dot_y, cx + 2.5, dot_y + 5,
                                   fill=self.intensity_color(seconds), outline="")
 
                 self._hit_boxes.append((cx - col_w / 2, row_top,
-                                        cx + col_w / 2, row_top + self.CELL_H, day_str))
-
-        needed = top + weeks * self.CELL_H + 2
-        if int(c.cget("height")) != needed:
-            c.config(height=needed)
+                                        cx + col_w / 2, row_top + cell_h, day_str))
 
     def _weeks_needed(self, first_of_month):
         """5 or 6 rows, so short months don't leave a trailing empty week."""
@@ -946,6 +951,105 @@ class Modal(tk.Toplevel):
         self.destroy()
 
 
+class ToggleSwitch(tk.Canvas):
+    """A label plus an on/off switch. `.get()` returns the state."""
+
+    def __init__(self, parent, text, value=True, command=None, bg=theme.CARD, width=250):
+        super().__init__(parent, width=width, height=30, bg=bg,
+                         highlightthickness=0, bd=0, cursor="hand2")
+        self.text = text
+        self._value = bool(value)
+        self.command = command
+        self._px_w = width
+        self._bg = bg
+        self._enabled = True
+        self.bind("<Button-1>", self._on_click)
+        self.render()
+
+    def _on_click(self, _e):
+        if not self._enabled:
+            return
+        self._value = not self._value
+        self.render()
+        if self.command:
+            self.command(self._value)
+
+    def get(self):
+        return self._value
+
+    def set(self, value):
+        self._value = bool(value)
+        self.render()
+
+    def set_enabled(self, enabled):
+        self._enabled = enabled
+        self.config(cursor="hand2" if enabled else "arrow")
+        self.render()
+
+    def render(self):
+        self.delete("all")
+        w = self._px_w
+        track_w, track_h = 38, 20
+        x1 = w - track_w
+        y1 = (30 - track_h) / 2
+
+        if not self._enabled:
+            on_fill, off_fill, fg = theme.TRACK, theme.TRACK, theme.TEXT_FAINT
+        else:
+            on_fill, off_fill, fg = theme.ACCENT, theme.BORDER, theme.TEXT
+
+        round_rect(self, x1, y1, x1 + track_w, y1 + track_h, track_h / 2,
+                   fill=on_fill if self._value else off_fill, outline="")
+        knob_cx = x1 + (track_w - track_h / 2 - 1) if self._value else x1 + track_h / 2 + 1
+        r = track_h / 2 - 3
+        self.create_oval(knob_cx - r, y1 + track_h / 2 - r,
+                         knob_cx + r, y1 + track_h / 2 + r, fill="white", outline="")
+
+        self.create_text(0, 15, text=self.text, anchor="w", fill=fg,
+                         font=(theme.FONT_FAMILY, 10))
+
+
+class MinutesDialog(Modal):
+    """Pick an arbitrary block length for the timer."""
+
+    def __init__(self, parent, minutes=25):
+        super().__init__(parent, "Custom Length", width=380, height=250)
+
+        tk.Label(self.body, text="Block length", bg=theme.CARD, fg=theme.TEXT,
+                 font=(theme.FONT_FAMILY, 11, "bold")).pack(anchor="w")
+        tk.Label(self.body, text="How long should this timer run?", bg=theme.CARD,
+                 fg=theme.TEXT_MUTED, font=(theme.FONT_FAMILY, 9)).pack(anchor="w", pady=(2, 12))
+
+        row = tk.Frame(self.body, bg=theme.CARD)
+        row.pack(anchor="w")
+        self.hours_var = tk.StringVar(value=str(int(minutes) // 60))
+        self.mins_var = tk.StringVar(value=str(int(minutes) % 60))
+        for var, label, limit in ((self.hours_var, "hours", 12), (self.mins_var, "minutes", 59)):
+            tk.Spinbox(row, from_=0, to=limit, textvariable=var, width=4,
+                       font=(theme.FONT_FAMILY, 11), justify="center",
+                       relief="flat", bg=theme.BG).pack(side="left", ipady=5)
+            tk.Label(row, text=label, bg=theme.CARD, fg=theme.TEXT_MUTED,
+                     font=(theme.FONT_FAMILY, 10)).pack(side="left", padx=(6, 16))
+
+        self.error = tk.Label(self.body, text="", bg=theme.CARD, fg=theme.DANGER,
+                               font=(theme.FONT_FAMILY, 9))
+        self.error.pack(anchor="w", pady=(12, 0))
+
+        self.add_buttons("Set")
+
+    def save(self):
+        try:
+            total = int(self.hours_var.get() or 0) * 60 + int(self.mins_var.get() or 0)
+        except ValueError:
+            self.error.config(text="Please enter a number.")
+            return
+        if total <= 0:
+            self.error.config(text="Length must be more than zero.")
+            return
+        self.result = {"minutes": total}
+        self.destroy()
+
+
 class SubjectDialog(Modal):
     """Create or edit a subject: name + color."""
 
@@ -991,7 +1095,7 @@ class SessionDialog(Modal):
     """Edit a logged session: subject and length."""
 
     def __init__(self, parent, session, subjects):
-        super().__init__(parent, "Edit Session", width=430, height=320)
+        super().__init__(parent, "Edit Session", width=430, height=380)
         self.subjects = subjects
         self.colors = {s["name"]: s["color"] for s in subjects}
 
@@ -1022,8 +1126,13 @@ class SessionDialog(Modal):
             tk.Label(row, text=label, bg=theme.CARD, fg=theme.TEXT_MUTED,
                      font=(theme.FONT_FAMILY, 10)).pack(side="left", padx=(6, 16))
 
+        self.counts_toggle = ToggleSwitch(
+            self.body, "Count as study time",
+            value=storage.counts_toward_study(session), width=250)
+        self.counts_toggle.pack(anchor="w", pady=(18, 0))
+
         tk.Label(self.body, text=f"Logged on {session.get('date', '')}", bg=theme.CARD,
-                 fg=theme.TEXT_MUTED, font=(theme.FONT_FAMILY, 9)).pack(anchor="w", pady=(16, 0))
+                 fg=theme.TEXT_MUTED, font=(theme.FONT_FAMILY, 9)).pack(anchor="w", pady=(14, 0))
 
         self.error = tk.Label(self.body, text="", bg=theme.CARD, fg=theme.DANGER,
                                font=(theme.FONT_FAMILY, 9))
@@ -1047,6 +1156,7 @@ class SessionDialog(Modal):
             "subject": name,
             "color": self.colors.get(name, storage.UNSPECIFIED_COLOR),
             "seconds": total,
+            "counts": self.counts_toggle.get(),
         }
         self.destroy()
 
