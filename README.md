@@ -20,6 +20,17 @@ You can also run it directly at any time with:
 python study_tracker\app.py
 ```
 
+### If the Desktop shortcut isn't created
+
+Re-run `setup.bat` and read the line it prints. Setup tries PowerShell
+first and VBScript second, and asks Windows where your Desktop actually is
+(it is often `%OneDrive%\Desktop` rather than `%USERPROFILE%\Desktop` once
+OneDrive backs up your folders), so it should work on either setup.
+
+If it still can't, the app itself is unaffected - launch it by
+double-clicking `study_tracker\app.py`, or right-click that file and choose
+**Send to > Desktop (create shortcut)** to make one by hand.
+
 ## Sections
 
 - **Dashboard** - greeting, this week's totals (today, week, session count,
@@ -55,6 +66,8 @@ session. Nothing leaves your computer.
 
 ```
 setup.bat                  installs the Desktop shortcut and launches the app
+create_shortcut.ps1        resolves the real Desktop path, makes the shortcut
+create_shortcut.vbs        same, used when PowerShell is unavailable
 study_tracker/
   app.py                   entry point - window, sidebar, page switching
   dashboard.py             Dashboard page
