@@ -15,9 +15,21 @@ SUBJECTS_FILE = os.path.join(DATA_DIR, "subjects.json")
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 
 # Subjects are a color-coded extra, never required to start a session.
+# Twelve hues, each distinguishable from the others at dot size on a white
+# card - so a dozen subjects can all be told apart on the dashboard.
 DEFAULT_PALETTE = [
-    "#5C2444", "#7D9B7E", "#E8A85C", "#C4638F",
-    "#B9A9C9", "#6B8CAE", "#D4886A", "#9C7BA8",
+    "#5C2444",  # plum
+    "#7D9B7E",  # sage
+    "#E8A85C",  # amber
+    "#C4638F",  # rose
+    "#2F8A82",  # teal
+    "#6B8CAE",  # steel blue
+    "#D4886A",  # terracotta
+    "#8E5FA8",  # orchid
+    "#7A8C3F",  # olive
+    "#B5504F",  # brick
+    "#3F4E8C",  # indigo
+    "#8C6A56",  # cocoa
 ]
 UNSPECIFIED_COLOR = "#B9A6B0"
 

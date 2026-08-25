@@ -742,7 +742,8 @@ class SubjectDialog(Modal):
                  font=(theme.FONT_FAMILY, 9)).pack(anchor="w", pady=(2, 8))
 
         self.grid_picker = ColorGrid(self.body, storage.DEFAULT_PALETTE,
-                                      selected=color or storage.DEFAULT_PALETTE[0])
+                                      selected=color or storage.DEFAULT_PALETTE[0],
+                                      per_row=6)
         self.grid_picker.pack(anchor="w")
 
         self.error = tk.Label(self.body, text="", bg=theme.CARD, fg=theme.PINK,
