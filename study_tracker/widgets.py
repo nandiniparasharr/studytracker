@@ -521,6 +521,231 @@ class ScrollFrame(tk.Frame):
         self.canvas.yview_scroll(delta * 2, "units")
 
 
+class StyledPopup(tk.Toplevel):
+    """A themed dropdown panel.
+
+    tk.Menu draws with the OS's native look, which sits badly against the
+    rest of the app, so menus are drawn here instead: one canvas holding a
+    rounded card, colored dots and hover highlights.
+
+    `items` is a list of dicts:
+        {"label": str, "command": callable, "color": hex|None,
+         "kind": "normal"|"accent"|"danger"}
+    or {"sep": True} for a divider.
+    """
+
+    ROW_H = 38
+    SEP_H = 9
+    PAD = 6
+    RADIUS = 12
+    TRANSPARENT_KEY = "#FF00FE"
+
+    MIN_W = 168
+    MAX_W = 330
+
+    def __init__(self, parent, items, anchor=None, width=None, align="left"):
+        super().__init__(parent)
+        self.items = list(items)
+        self._hover = None
+        self._rows = []
+        self._width = width or self._auto_width()
+
+        self.overrideredirect(True)
+        try:
+            self.transient(parent.winfo_toplevel())
+        except tk.TclError:
+            pass
+
+        # On Windows a key color renders as truly transparent, so the card's
+        # rounded corners have nothing boxy behind them. Elsewhere fall back
+        # to the page background, which is near-invisible at this radius.
+        bg = theme.BG
+        try:
+            self.attributes("-transparentcolor", self.TRANSPARENT_KEY)
+            bg = self.TRANSPARENT_KEY
+        except tk.TclError:
+            pass
+        self.configure(bg=bg)
+
+        height = self.PAD * 2 + sum(
+            self.SEP_H if it.get("sep") else self.ROW_H for it in self.items)
+        self._height = height
+
+        self.canvas = tk.Canvas(self, width=width, height=height, bg=bg,
+                                highlightthickness=0, bd=0)
+        self.canvas.pack()
+        self.canvas.bind("<Motion>", self._on_motion)
+        self.canvas.bind("<Button-1>", self._on_click)
+        self.canvas.bind("<Leave>", self._on_leave)
+
+        self.bind("<Escape>", lambda _e: self.dismiss())
+        self.bind("<Button-1>", self._maybe_dismiss)
+
+        self._place(anchor, align)
+        self._render()
+
+        self.after(10, self._take_grab)
+
+    def _auto_width(self):
+        """Widen to fit the longest label, within bounds."""
+        try:
+            import tkinter.font as tkfont
+            font = tkfont.Font(family=theme.FONT_FAMILY, size=10)
+            widest = max((font.measure(it["label"]) for it in self.items
+                          if not it.get("sep")), default=0)
+        except (tk.TclError, ImportError):
+            widest = max((len(it.get("label", "")) * 7 for it in self.items), default=0)
+        # dot + text + room for the tick on the right
+        return int(max(self.MIN_W, min(self.MAX_W, widest + 78)))
+
+    def _fit(self, text, max_px):
+        """Trim a label that still doesn't fit, with an ellipsis."""
+        try:
+            import tkinter.font as tkfont
+            font = tkfont.Font(family=theme.FONT_FAMILY, size=10)
+        except (tk.TclError, ImportError):
+            return text
+        if font.measure(text) <= max_px:
+            return text
+        ell = "..."
+        while text and font.measure(text + ell) > max_px:
+            text = text[:-1]
+        return text.rstrip() + ell
+
+    # ------------------------------------------------------------ placement
+    def _place(self, anchor, align):
+        if anchor is not None:
+            try:
+                x = anchor.winfo_rootx()
+                y = anchor.winfo_rooty() + anchor.winfo_height() + 4
+                if align == "right":
+                    x = anchor.winfo_rootx() + anchor.winfo_width() - self._width
+            except tk.TclError:
+                x = y = 100
+        else:
+            x, y = self.winfo_pointerxy()
+
+        # keep the panel on screen
+        sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
+        x = max(4, min(x, sw - self._width - 4))
+        if y + self._height > sh - 4 and anchor is not None:
+            try:
+                y = anchor.winfo_rooty() - self._height - 4
+            except tk.TclError:
+                pass
+        y = max(4, min(y, sh - self._height - 4))
+        self.geometry(f"{self._width}x{self._height}+{int(x)}+{int(y)}")
+
+    def _take_grab(self):
+        try:
+            self.grab_set()
+            self.focus_set()
+        except tk.TclError:
+            pass
+
+    # -------------------------------------------------------------- drawing
+    def _render(self):
+        c = self.canvas
+        c.delete("all")
+        w, h = self._width, self._height
+        round_rect(c, 1, 1, w - 1, h - 1, self.RADIUS,
+                   fill=theme.CARD, outline=theme.BORDER, width=1)
+
+        self._rows = []
+        y = self.PAD
+        for idx, item in enumerate(self.items):
+            if item.get("sep"):
+                c.create_line(self.PAD + 8, y + self.SEP_H / 2,
+                              w - self.PAD - 8, y + self.SEP_H / 2, fill=theme.BORDER)
+                y += self.SEP_H
+                continue
+
+            hovered = self._hover == idx
+            if hovered:
+                round_rect(c, self.PAD, y, w - self.PAD, y + self.ROW_H, 9,
+                           fill=theme.PLUM_SOFT, outline="")
+
+            text_x = self.PAD + 14
+            color = item.get("color")
+            if color is not None:
+                cy = y + self.ROW_H / 2
+                c.create_oval(text_x, cy - 5, text_x + 10, cy + 5, fill=color, outline="")
+                text_x += 18
+            elif item.get("swatch"):
+                cy = y + self.ROW_H / 2
+                c.create_oval(text_x, cy - 5, text_x + 10, cy + 5,
+                              outline=theme.TEXT_FAINT, width=1)
+                text_x += 18
+
+            kind = item.get("kind", "normal")
+            if kind == "danger":
+                fg = theme.PINK
+            elif kind == "accent":
+                fg = theme.PLUM
+            else:
+                fg = theme.PLUM if hovered else theme.TEXT
+            weight = "bold" if kind == "accent" else "normal"
+
+            tick_room = 22 if item.get("checked") else 6
+            label = self._fit(item["label"], w - text_x - self.PAD - tick_room)
+            c.create_text(text_x, y + self.ROW_H / 2, text=label, anchor="w",
+                          fill=fg, font=(theme.FONT_FAMILY, 10, weight))
+
+            if item.get("checked"):
+                # drawn rather than a "✓" glyph, which not every font has
+                tx, ty = w - self.PAD - 20, y + self.ROW_H / 2
+                c.create_line(tx, ty, tx + 4, ty + 4, tx + 11, ty - 5,
+                              fill=theme.PLUM, width=2,
+                              capstyle="round", joinstyle="round")
+
+            self._rows.append((y, y + self.ROW_H, idx))
+            y += self.ROW_H
+
+    # ------------------------------------------------------------ behaviour
+    def _row_at(self, y):
+        for top, bottom, idx in self._rows:
+            if top <= y <= bottom:
+                return idx
+        return None
+
+    def _on_motion(self, event):
+        idx = self._row_at(event.y)
+        if idx != self._hover:
+            self._hover = idx
+            self.canvas.config(cursor="hand2" if idx is not None else "")
+            self._render()
+
+    def _on_leave(self, _event):
+        if self._hover is not None:
+            self._hover = None
+            self._render()
+
+    def _on_click(self, event):
+        idx = self._row_at(event.y)
+        if idx is None:
+            return
+        command = self.items[idx].get("command")
+        self.dismiss()
+        if command:
+            command()
+
+    def _maybe_dismiss(self, event):
+        # With the grab held, clicks elsewhere in the app arrive here with
+        # coordinates outside the panel - that's the "click away" gesture.
+        if not (0 <= event.x <= self._width and 0 <= event.y <= self._height):
+            self.dismiss()
+
+    def dismiss(self):
+        try:
+            self.grab_release()
+        except tk.TclError:
+            pass
+        try:
+            self.destroy()
+        except tk.TclError:
+            pass
+
+
 class PillButton(tk.Canvas):
     """Rounded button used for primary/secondary actions."""
 
@@ -590,15 +815,6 @@ class KebabButton(tk.Canvas):
         self._size = size
         self._bg = bg
         self.hovered = False
-        self.menu = tk.Menu(self, tearoff=0, font=(theme.FONT_FAMILY, 10),
-                            bg=theme.CARD, fg=theme.TEXT,
-                            activebackground=theme.PLUM_SOFT, activeforeground=theme.PLUM,
-                            bd=0, relief="flat")
-        for label, callback in items:
-            if label == "-":
-                self.menu.add_separator()
-            else:
-                self.menu.add_command(label=label, command=callback)
         self.bind("<Button-1>", self._open)
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
@@ -623,8 +839,18 @@ class KebabButton(tk.Canvas):
             self.create_oval(s / 2 - 1.6, cy - 1.6, s / 2 + 1.6, cy + 1.6,
                              fill=color, outline="")
 
-    def _open(self, event):
-        self.menu.tk_popup(event.x_root, event.y_root)
+    def _open(self, _event=None):
+        popup_items = []
+        for label, callback in self.items:
+            if label == "-":
+                popup_items.append({"sep": True})
+            else:
+                popup_items.append({
+                    "label": label,
+                    "command": callback,
+                    "kind": "danger" if label.lower() == "delete" else "normal",
+                })
+        StyledPopup(self, popup_items, anchor=self, align="right")
 
 
 class ColorGrid(tk.Frame):
@@ -850,8 +1076,6 @@ class SubjectPicker(tk.Frame):
         self.chip.pack(side="left")
         self.chip.bind("<Button-1>", self._open_menu)
 
-        self.menu = tk.Menu(self, tearoff=0, font=(theme.FONT_FAMILY, 10))
-
         add = tk.Canvas(row, width=38, height=38, bg=bg, highlightthickness=0, cursor="hand2")
         round_rect(add, 1, 1, 37, 37, 12, fill=theme.PLUM_SOFT, outline="")
         add.create_text(19, 19, text="+", fill=theme.PLUM, font=(theme.FONT_FAMILY, 15, "bold"))
@@ -878,14 +1102,27 @@ class SubjectPicker(tk.Frame):
         self.chip.create_text(192, 19, text="▾", fill=theme.TEXT_MUTED,
                               font=(theme.FONT_FAMILY, 9))
 
-    def _open_menu(self, event):
+    def _open_menu(self, _event=None):
         if self._locked:
             return
-        self.menu.delete(0, "end")
-        self.menu.add_command(label="No subject", command=lambda: self._select("No subject"))
+        current = self.selected.get()
+        items = [{
+            "label": "No subject",
+            "swatch": True,
+            "checked": current == "No subject",
+            "command": lambda: self._select("No subject"),
+        }]
         for s in self.subjects:
-            self.menu.add_command(label=s["name"], command=lambda n=s["name"]: self._select(n))
-        self.menu.tk_popup(event.x_root, event.y_root)
+            items.append({
+                "label": s["name"],
+                "color": s["color"],
+                "checked": current == s["name"],
+                "command": lambda n=s["name"]: self._select(n),
+            })
+        items.append({"sep": True})
+        items.append({"label": "New subject...", "kind": "accent",
+                      "command": self._add_subject})
+        StyledPopup(self, items, anchor=self.chip)
 
     def _add_subject(self):
         if self._locked:
