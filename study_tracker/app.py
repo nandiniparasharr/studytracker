@@ -123,7 +123,7 @@ class StudyTrackerApp(tk.Tk):
         round_rect(c, 0, 0, w, h, 14, fill=theme.SIDEBAR_ACTIVE, outline="")
 
         days = storage.current_streak(storage.load_sessions())
-        icons.draw(c, "flame", 16, 16, 16, "#E8A85C")
+        icons.draw(c, "flame", 16, 16, 16, theme.ACCENT_LIGHT)
         c.create_text(40, 24, text="Current Streak", anchor="w", fill=theme.SIDEBAR_TEXT,
                       font=(theme.FONT_FAMILY, 9))
         num = c.create_text(16, 58, text=str(days), anchor="w", fill="white",

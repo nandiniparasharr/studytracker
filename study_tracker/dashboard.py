@@ -115,9 +115,9 @@ class DashboardPage(tk.Frame):
         tk.Label(strip, text=FOOTER_QUOTE, bg=theme.BG, fg=theme.TEXT_MUTED,
                  font=(theme.FONT_FAMILY, 10)).pack(side="left")
         heart = tk.Canvas(strip, width=14, height=14, bg=theme.BG, highlightthickness=0)
-        heart.create_oval(1, 2, 8, 9, fill=theme.PINK, outline="")
-        heart.create_oval(6, 2, 13, 9, fill=theme.PINK, outline="")
-        heart.create_polygon(1.5, 6, 12.5, 6, 7, 13, fill=theme.PINK, outline="")
+        heart.create_oval(1, 2, 8, 9, fill=theme.DANGER, outline="")
+        heart.create_oval(6, 2, 13, 9, fill=theme.DANGER, outline="")
+        heart.create_polygon(1.5, 6, 12.5, 6, 7, 13, fill=theme.DANGER, outline="")
         heart.pack(side="left", padx=(6, 0))
 
     # -------------------------------------------------------------- data
@@ -356,8 +356,8 @@ class DashboardPage(tk.Frame):
         bar.set_ratio(ratio)
 
         trophy = tk.Canvas(bar_row, width=56, height=56, bg=theme.CARD, highlightthickness=0)
-        trophy.create_oval(0, 0, 55, 55, fill=theme.PLUM_SOFT, outline="")
-        icons.draw(trophy, "trophy", 15, 15, 26, theme.PLUM)
+        trophy.create_oval(0, 0, 55, 55, fill=theme.ACCENT_SOFT, outline="")
+        icons.draw(trophy, "trophy", 15, 15, 26, theme.ACCENT)
         trophy.pack(side="right", padx=(14, 0))
 
         remaining = max(0, target - done)

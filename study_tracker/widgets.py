@@ -127,7 +127,7 @@ class NavButton(tk.Canvas):
             round_rect(self, 0, 2, w, h - 2, 11, fill=theme.SIDEBAR_ACTIVE, outline="")
             fg = theme.SIDEBAR_TEXT_ACTIVE
         elif self.hovered:
-            round_rect(self, 0, 2, w, h - 2, 11, fill="#3E1F35", outline="")
+            round_rect(self, 0, 2, w, h - 2, 11, fill=theme.SIDEBAR_HOVER, outline="")
             fg = theme.SIDEBAR_TEXT_ACTIVE
         else:
             fg = theme.SIDEBAR_TEXT
@@ -149,8 +149,8 @@ class StatCard(RoundedCard):
         top.pack(fill="x", anchor="w")
 
         bubble = tk.Canvas(top, width=44, height=44, bg=theme.CARD, highlightthickness=0)
-        bubble.create_oval(0, 0, 43, 43, fill=theme.PLUM_SOFT, outline="")
-        icons.draw(bubble, icon_name, 12, 12, 20, theme.PLUM)
+        bubble.create_oval(0, 0, 43, 43, fill=theme.ACCENT_SOFT, outline="")
+        icons.draw(bubble, icon_name, 12, 12, 20, theme.ACCENT)
         bubble.pack(side="left")
 
         right = tk.Frame(top, bg=theme.CARD)
@@ -169,7 +169,7 @@ class StatCard(RoundedCard):
     def _render_delta(self, delta):
         arrow = tk.Canvas(self.delta_frame, width=12, height=12, bg=theme.CARD, highlightthickness=0)
         up = not delta.startswith("-")
-        color = theme.GREEN if up else theme.PINK
+        color = theme.POSITIVE if up else theme.DANGER
         if up:
             arrow.create_polygon(6, 2, 11, 9, 1, 9, fill=color, outline="")
         else:
@@ -226,7 +226,7 @@ class BarChart(tk.Canvas):
             base = pad_t + plot_h
             if bh > 1:
                 round_rect(self, cx - bar_w / 2, base - bh, cx + bar_w / 2, base,
-                           min(5, bar_w / 2), fill=theme.PLUM_MID, outline="")
+                           min(5, bar_w / 2), fill=theme.ACCENT, outline="")
             self.create_text(cx, h - pad_b + 13, text=self.labels[i], fill=theme.TEXT_MUTED,
                              font=(theme.FONT_FAMILY, 9))
 
@@ -295,7 +295,7 @@ class ProgressBar(tk.Canvas):
             return
         round_rect(self, 0, 0, w, h, h / 2, fill=theme.TRACK, outline="")
         if self.ratio > 0:
-            round_rect(self, 0, 0, max(h, w * self.ratio), h, h / 2, fill=theme.PLUM, outline="")
+            round_rect(self, 0, 0, max(h, w * self.ratio), h, h / 2, fill=theme.ACCENT, outline="")
 
 
 class StudyCalendar(tk.Frame):
@@ -331,7 +331,7 @@ class StudyCalendar(tk.Frame):
                          font=(theme.FONT_FAMILY, 13), padx=7)
             b.pack(side="left")
             b.bind("<Button-1>", lambda _e, hh=handler: hh())
-            b.bind("<Enter>", lambda _e, w=b: w.config(fg=theme.PLUM))
+            b.bind("<Enter>", lambda _e, w=b: w.config(fg=theme.ACCENT))
             b.bind("<Leave>", lambda _e, w=b: w.config(fg=theme.TEXT_MUTED))
 
         self.grid_canvas = tk.Canvas(self, bg=bg, highlightthickness=0, bd=0, width=1, height=1)
@@ -416,11 +416,11 @@ class StudyCalendar(tk.Frame):
 
                 if is_selected:
                     c.create_oval(cx - 17, cy - 17, cx + 17, cy + 17,
-                                  fill=theme.PLUM_LIGHT, outline="")
+                                  fill=theme.ACCENT_LIGHT, outline="")
                     fg = "white"
                 elif is_today:
                     c.create_oval(cx - 17, cy - 17, cx + 17, cy + 17,
-                                  fill=theme.PLUM, outline="")
+                                  fill=theme.ACCENT, outline="")
                     fg = "white"
                 elif not in_month:
                     fg = theme.TEXT_FAINT
@@ -663,7 +663,7 @@ class StyledPopup(tk.Toplevel):
             hovered = self._hover == idx
             if hovered:
                 round_rect(c, self.PAD, y, w - self.PAD, y + self.ROW_H, 9,
-                           fill=theme.PLUM_SOFT, outline="")
+                           fill=theme.ACCENT_SOFT, outline="")
 
             text_x = self.PAD + 14
             color = item.get("color")
@@ -679,11 +679,11 @@ class StyledPopup(tk.Toplevel):
 
             kind = item.get("kind", "normal")
             if kind == "danger":
-                fg = theme.PINK
+                fg = theme.DANGER
             elif kind == "accent":
-                fg = theme.PLUM
+                fg = theme.ACCENT
             else:
-                fg = theme.PLUM if hovered else theme.TEXT
+                fg = theme.ACCENT if hovered else theme.TEXT
             weight = "bold" if kind == "accent" else "normal"
 
             tick_room = 22 if item.get("checked") else 6
@@ -695,7 +695,7 @@ class StyledPopup(tk.Toplevel):
                 # drawn rather than a "✓" glyph, which not every font has
                 tx, ty = w - self.PAD - 20, y + self.ROW_H / 2
                 c.create_line(tx, ty, tx + 4, ty + 4, tx + 11, ty - 5,
-                              fill=theme.PLUM, width=2,
+                              fill=theme.ACCENT, width=2,
                               capstyle="round", joinstyle="round")
 
             self._rows.append((y, y + self.ROW_H, idx))
@@ -794,11 +794,11 @@ class PillButton(tk.Canvas):
         if not self._enabled:
             fill, fg, outline = theme.TRACK, theme.TEXT_FAINT, ""
         elif self.kind == "primary":
-            fill = theme.PLUM_LIGHT if self.hovered else theme.PLUM
+            fill = theme.ACCENT_LIGHT if self.hovered else theme.ACCENT
             fg, outline = "white", ""
         else:
-            fill = theme.PLUM_SOFT if self.hovered else theme.CARD
-            fg, outline = theme.PLUM, theme.BORDER
+            fill = theme.ACCENT_SOFT if self.hovered else theme.CARD
+            fg, outline = theme.ACCENT, theme.BORDER
         round_rect(self, 1, 1, w - 1, h - 1, (h - 2) / 2, fill=fill,
                    outline=outline, width=1 if outline else 0)
         self.create_text(w / 2, h / 2, text=self.text, fill=fg,
@@ -832,8 +832,8 @@ class KebabButton(tk.Canvas):
         self.delete("all")
         s = self._size
         if self.hovered:
-            round_rect(self, 1, 1, s - 1, s - 1, 8, fill=theme.PLUM_SOFT, outline="")
-        color = theme.PLUM if self.hovered else theme.TEXT_MUTED
+            round_rect(self, 1, 1, s - 1, s - 1, 8, fill=theme.ACCENT_SOFT, outline="")
+        color = theme.ACCENT if self.hovered else theme.TEXT_MUTED
         for i in range(3):
             cy = s / 2 - 6 + i * 6
             self.create_oval(s / 2 - 1.6, cy - 1.6, s / 2 + 1.6, cy + 1.6,
@@ -881,7 +881,7 @@ class ColorGrid(tk.Frame):
         for color, sw in self._swatches.items():
             sw.delete("all")
             if color == self.selected:
-                round_rect(sw, 1, 1, 33, 33, 11, fill="", outline=theme.PLUM, width=2)
+                round_rect(sw, 1, 1, 33, 33, 11, fill="", outline=theme.ACCENT, width=2)
                 round_rect(sw, 5, 5, 29, 29, 8, fill=color, outline="")
             else:
                 round_rect(sw, 3, 3, 31, 31, 10, fill=color, outline="")
@@ -972,7 +972,7 @@ class SubjectDialog(Modal):
                                       per_row=6)
         self.grid_picker.pack(anchor="w")
 
-        self.error = tk.Label(self.body, text="", bg=theme.CARD, fg=theme.PINK,
+        self.error = tk.Label(self.body, text="", bg=theme.CARD, fg=theme.DANGER,
                                font=(theme.FONT_FAMILY, 9))
         self.error.pack(anchor="w", pady=(10, 0))
 
@@ -1004,7 +1004,7 @@ class SessionDialog(Modal):
         menu = tk.OptionMenu(self.body, self.subject_var, *options)
         menu.config(bg=theme.CARD, fg=theme.TEXT, relief="solid", bd=1,
                     font=(theme.FONT_FAMILY, 10), highlightthickness=0,
-                    activebackground=theme.PLUM_SOFT, anchor="w", padx=10)
+                    activebackground=theme.ACCENT_SOFT, anchor="w", padx=10)
         menu.pack(fill="x", pady=(8, 0))
 
         tk.Label(self.body, text="Length", bg=theme.CARD, fg=theme.TEXT,
@@ -1025,7 +1025,7 @@ class SessionDialog(Modal):
         tk.Label(self.body, text=f"Logged on {session.get('date', '')}", bg=theme.CARD,
                  fg=theme.TEXT_MUTED, font=(theme.FONT_FAMILY, 9)).pack(anchor="w", pady=(16, 0))
 
-        self.error = tk.Label(self.body, text="", bg=theme.CARD, fg=theme.PINK,
+        self.error = tk.Label(self.body, text="", bg=theme.CARD, fg=theme.DANGER,
                                font=(theme.FONT_FAMILY, 9))
         self.error.pack(anchor="w", pady=(8, 0))
 
@@ -1077,8 +1077,8 @@ class SubjectPicker(tk.Frame):
         self.chip.bind("<Button-1>", self._open_menu)
 
         add = tk.Canvas(row, width=38, height=38, bg=bg, highlightthickness=0, cursor="hand2")
-        round_rect(add, 1, 1, 37, 37, 12, fill=theme.PLUM_SOFT, outline="")
-        add.create_text(19, 19, text="+", fill=theme.PLUM, font=(theme.FONT_FAMILY, 15, "bold"))
+        round_rect(add, 1, 1, 37, 37, 12, fill=theme.ACCENT_SOFT, outline="")
+        add.create_text(19, 19, text="+", fill=theme.ACCENT, font=(theme.FONT_FAMILY, 15, "bold"))
         add.pack(side="left", padx=(8, 0))
         add.bind("<Button-1>", lambda _e: self._add_subject())
 

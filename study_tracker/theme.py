@@ -1,43 +1,64 @@
-"""Shared colors and fonts for the Study Tracker UI (plum / cream theme)."""
+"""Shared colors and fonts for the Study Tracker UI.
 
-# Sidebar
-SIDEBAR = "#33182B"
-SIDEBAR_ACTIVE = "#4E2742"
-SIDEBAR_HOVER = "#42203899"
-SIDEBAR_TEXT = "#C9B3C1"
+Base palette
+------------
+GROUND  #FAFAF8   the page behind everything
+RAISED  #FFFFFF   cards sitting on the ground
+DOTS    #DEDDD6   hairlines, borders, dividers
+INK     #17181B   primary text
+MUTED   #6E7076   secondary text
+ACCENT  #B8496A   the one highlight color
+
+Everything below is either one of those six or derived from them, so the
+whole app can be re-skinned from this file alone.
+"""
+
+# --------------------------------------------------------------- base
+GROUND = "#FAFAF8"
+RAISED = "#FFFFFF"
+DOTS = "#DEDDD6"
+INK = "#17181B"
+MUTED = "#6E7076"
+ACCENT = "#B8496A"
+
+# ------------------------------------------------------------ derived
+ACCENT_DARK = "#9E3D5A"    # pressed / hover on a filled accent
+ACCENT_LIGHT = "#D0718B"   # secondary accent fill
+ACCENT_SOFT = "#F7E9ED"    # accent at ~12% over white: icon bubbles, hovers
+
+# --------------------------------------------------------- surfaces
+BG = GROUND
+CARD = RAISED
+BORDER = DOTS
+TRACK = "#EFEEE9"          # empty half of a progress bar
+
+# ------------------------------------------------------------- text
+TEXT = INK
+TEXT_MUTED = MUTED
+TEXT_FAINT = "#8A8C91"     # out-of-month dates, column headers
+
+# ---------------------------------------------------------- sidebar
+# The sidebar is an INK panel, so its scale runs the other way.
+SIDEBAR = INK
+SIDEBAR_ACTIVE = "#2A2C31"
+SIDEBAR_HOVER = "#212328"
+SIDEBAR_TEXT = "#A9AAAE"
 SIDEBAR_TEXT_ACTIVE = "#FFFFFF"
-SIDEBAR_MUTED = "#9C8394"
-SIDEBAR_DIVIDER = "#4A2340"
+SIDEBAR_MUTED = MUTED
+SIDEBAR_DIVIDER = "#2A2C31"
 
-# Surfaces
-BG = "#FAF7F8"
-CARD = "#FFFFFF"
-BORDER = "#EFE6EA"
-TRACK = "#F0E7EB"
-
-# Brand
-PLUM = "#5C2444"
-PLUM_MID = "#7B3B5E"
-PLUM_LIGHT = "#8E4A6B"
-PLUM_SOFT = "#F3E6EC"
-PINK = "#C4638F"
-
-# Text
-TEXT = "#2E1B2E"
-TEXT_MUTED = "#8A7480"
-TEXT_FAINT = "#B9A6B0"
-
-# Feedback
-GREEN = "#5E8C63"
+# --------------------------------------------------------- feedback
+POSITIVE = "#5B7F63"       # "up vs last week" - the palette has no green
+DANGER = ACCENT            # destructive actions lean on the accent
 
 FONT_FAMILY = "Segoe UI"
 
-# Calendar intensity ramp (matches the dashboard legend)
+# --------------------------------------------- calendar intensity ramp
 CAL_NONE = None
-CAL_LOW = "#EBC7D8"
-CAL_MED = "#C4739B"
-CAL_HIGH = "#8E4A6B"
-CAL_MAX = "#5C2444"
+CAL_LOW = "#F0CDD8"
+CAL_MED = "#DB90A6"
+CAL_HIGH = "#C4627F"
+CAL_MAX = "#A03D5B"
 
 CAL_LEGEND = [
     ("No study", CAL_NONE),

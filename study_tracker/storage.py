@@ -21,17 +21,19 @@ DEFAULT_PALETTE = [
     "#5C2444",  # plum
     "#7D9B7E",  # sage
     "#E8A85C",  # amber
-    "#C4638F",  # rose
+    "#E3A0BC",  # blush
     "#2F8A82",  # teal
     "#6B8CAE",  # steel blue
     "#D4886A",  # terracotta
     "#8E5FA8",  # orchid
     "#7A8C3F",  # olive
-    "#B5504F",  # brick
+    "#8F3A38",  # brick
     "#3F4E8C",  # indigo
     "#8C6A56",  # cocoa
 ]
-UNSPECIFIED_COLOR = "#B9A6B0"
+# Neutral grey so an unlabelled session reads as "no subject"
+# rather than as one more color in the palette.
+UNSPECIFIED_COLOR = "#A9AAAE"
 
 DEFAULT_SETTINGS = {"weekly_goal_hours": 20, "display_name": ""}
 

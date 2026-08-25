@@ -370,7 +370,7 @@ class GoalsPage(_Page):
                              highlightthickness=0, cursor="hand2")
             active = hours == goal_hours
             round_rect(chip, 1, 1, 55, 35, 11,
-                       fill=theme.PLUM if active else theme.CARD,
+                       fill=theme.ACCENT if active else theme.CARD,
                        outline="" if active else theme.BORDER, width=0 if active else 1)
             chip.create_text(28, 18, text=f"{hours}h", fill="white" if active else theme.TEXT_MUTED,
                              font=(theme.FONT_FAMILY, 10, "bold"))
@@ -386,8 +386,8 @@ class GoalsPage(_Page):
         sw = tk.Frame(streak_card.body, bg=theme.CARD)
         sw.pack(fill="both", expand=True, padx=24, pady=20)
         flame = tk.Canvas(sw, width=40, height=40, bg=theme.CARD, highlightthickness=0)
-        flame.create_oval(0, 0, 39, 39, fill=theme.PLUM_SOFT, outline="")
-        icons.draw(flame, "flame", 11, 10, 18, theme.PLUM)
+        flame.create_oval(0, 0, 39, 39, fill=theme.ACCENT_SOFT, outline="")
+        icons.draw(flame, "flame", 11, 10, 18, theme.ACCENT)
         flame.pack(side="left", padx=(0, 14))
         text = tk.Frame(sw, bg=theme.CARD)
         text.pack(side="left")

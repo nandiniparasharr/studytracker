@@ -80,7 +80,7 @@ class TimerPage(tk.Frame):
         for m, chip in self._preset_chips.items():
             chip.delete("all")
             active = (m == self.minutes) and not self.running
-            fill = theme.PLUM if active else theme.CARD
+            fill = theme.ACCENT if active else theme.CARD
             outline = "" if active else theme.BORDER
             fg = "white" if active else theme.TEXT_MUTED
             round_rect(chip, 1, 1, 61, 33, 11, fill=fill, outline=outline,
