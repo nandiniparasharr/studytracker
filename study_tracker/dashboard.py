@@ -21,6 +21,7 @@ class DashboardPage(tk.Frame):
 
         stats_row = tk.Frame(self, bg=theme.BG)
         stats_row.pack(fill="x", padx=pad)
+        stats_row.grid_rowconfigure(0, minsize=132)
         self.stat_cards = {}
         for i, key in enumerate(["today", "week", "sessions", "top_subject"]):
             card = RoundedCard(stats_row, bg=theme.CARD, radius=14)
@@ -31,9 +32,9 @@ class DashboardPage(tk.Frame):
         mid_row = tk.Frame(self, bg=theme.BG)
         mid_row.pack(fill="both", expand=True, padx=pad, pady=pad)
         mid_row.grid_columnconfigure(0, weight=3)
-        mid_row.grid_columnconfigure(1, weight=2)
-        mid_row.grid_rowconfigure(0, weight=1)
-        mid_row.grid_rowconfigure(1, weight=1)
+        mid_row.grid_columnconfigure(1, weight=2, minsize=320)
+        mid_row.grid_rowconfigure(0, weight=1, minsize=310)
+        mid_row.grid_rowconfigure(1, weight=1, minsize=180)
 
         self.subjects_card = RoundedCard(mid_row, bg=theme.CARD, radius=14)
         self.subjects_card.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=(0, 10))
@@ -41,7 +42,7 @@ class DashboardPage(tk.Frame):
         self.calendar_card = RoundedCard(mid_row, bg=theme.CARD, radius=14)
         self.calendar_card.grid(row=0, column=1, sticky="nsew", pady=(0, 10))
         self.calendar = MiniCalendar(self.calendar_card.body, bg=theme.CARD, on_day_click=self._show_day)
-        self.calendar.pack(fill="both", expand=True, padx=14, pady=14)
+        self.calendar.pack(fill="both", expand=True, padx=16, pady=14)
 
         self.recent_card = RoundedCard(mid_row, bg=theme.CARD, radius=14)
         self.recent_card.grid(row=1, column=0, columnspan=2, sticky="nsew")
@@ -64,10 +65,10 @@ class DashboardPage(tk.Frame):
             entry["seconds"] += s["seconds"]
         top_subject = max(subject_totals.items(), key=lambda kv: kv[1]["seconds"])[0] if subject_totals else "-"
 
-        self._render_stat("today", "Today", self._fmt_hours(today_secs), theme.ORANGE)
-        self._render_stat("week", "This Week", self._fmt_hours(week_secs), theme.NAVY)
-        self._render_stat("sessions", "Sessions (Week)", str(len(week_sessions)), theme.GREEN)
-        self._render_stat("top_subject", "Top Subject", top_subject, theme.RED)
+        self._render_stat("today", "Today", self._fmt_hours(today_secs), theme.ORANGE, "T")
+        self._render_stat("week", "This Week", self._fmt_hours(week_secs), theme.NAVY, "W")
+        self._render_stat("sessions", "Sessions (Week)", str(len(week_sessions)), theme.GREEN, "S")
+        self._render_stat("top_subject", "Top Subject", top_subject, theme.RED, "★")
 
         self._render_subjects(subject_totals)
 
@@ -84,17 +85,22 @@ class DashboardPage(tk.Frame):
         m = (seconds % 3600) // 60
         return f"{h}h {m}m"
 
-    def _render_stat(self, key, label, value, accent):
+    def _render_stat(self, key, label, value, accent, badge_letter):
         card = self.stat_cards[key]
         for w in card.body.winfo_children():
             w.destroy()
-        tk.Frame(card.body, bg=accent, height=4).pack(fill="x", side="top")
         inner = tk.Frame(card.body, bg=theme.CARD)
-        inner.pack(fill="both", expand=True, padx=14, pady=12)
+        inner.pack(fill="both", expand=True, padx=16, pady=14)
+
+        badge = tk.Canvas(inner, width=32, height=32, bg=theme.CARD, highlightthickness=0)
+        badge.create_oval(1, 1, 31, 31, fill=accent, outline="")
+        badge.create_text(16, 17, text=badge_letter, fill="white", font=(theme.FONT_FAMILY, 11, "bold"))
+        badge.pack(anchor="w")
+
         tk.Label(inner, text=label, bg=theme.CARD, fg=theme.TEXT_MUTED,
-                 font=(theme.FONT_FAMILY, 9)).pack(anchor="w")
+                 font=(theme.FONT_FAMILY, 9)).pack(anchor="w", pady=(10, 0))
         tk.Label(inner, text=value, bg=theme.CARD, fg=theme.TEXT_DARK,
-                 font=(theme.FONT_FAMILY, 16, "bold")).pack(anchor="w", pady=(4, 0))
+                 font=(theme.FONT_FAMILY, 17, "bold")).pack(anchor="w", pady=(2, 0))
 
     def _render_subjects(self, subject_totals):
         for w in self.subjects_card.body.winfo_children():

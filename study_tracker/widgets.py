@@ -16,7 +16,7 @@ class RoundedCard(tk.Frame):
     other container.
     """
 
-    def __init__(self, parent, bg=theme.CARD, radius=14, **kwargs):
+    def __init__(self, parent, bg=theme.CARD, radius=14, min_height=None, min_width=None, **kwargs):
         try:
             parent_bg = parent.cget("bg")
         except tk.TclError:
@@ -25,8 +25,15 @@ class RoundedCard(tk.Frame):
         self._radius = radius
         self._bg = bg
 
-        self.canvas = tk.Canvas(self, highlightthickness=0, bd=0, bg=parent_bg)
+        # A bare Canvas asks for a large default size (historically ~150-200px)
+        # which would otherwise inflate every card that isn't stretched by a
+        # weighted grid/pack - pin it to 1x1 and size explicitly instead.
+        self.canvas = tk.Canvas(self, highlightthickness=0, bd=0, bg=parent_bg, width=1, height=1)
         self.canvas.pack(fill="both", expand=True)
+
+        if min_height or min_width:
+            self.pack_propagate(False)
+            self.config(width=min_width or 1, height=min_height or 1)
 
         self.body = tk.Frame(self.canvas, bg=bg)
         self._window = self.canvas.create_window(2, 2, window=self.body, anchor="nw")
@@ -37,7 +44,8 @@ class RoundedCard(tk.Frame):
         if w < 8 or h < 8:
             return
         self.canvas.delete("card_bg")
-        self._draw_rounded_rect(1, 1, w - 1, h - 1, self._radius, fill=self._bg, outline="", tags="card_bg")
+        self._draw_rounded_rect(1, 1, w - 1, h - 1, self._radius, fill=self._bg,
+                                 outline=theme.BORDER, width=1, tags="card_bg")
         self.canvas.tag_lower("card_bg")
         self.canvas.coords(self._window, 2, 2)
         self.canvas.itemconfig(self._window, width=w - 4, height=h - 4)
@@ -94,12 +102,18 @@ class NavButton(tk.Frame):
 
 
 class MiniCalendar(tk.Frame):
-    """A month grid; days are shaded by how much study time was logged."""
+    """A clean month grid: a ring marks today, a small dot marks days with
+    logged study time (darker dot = more hours). Days without a session
+    show nothing but the date - no solid color blocks.
+    """
+
+    CELL = 36
 
     def __init__(self, parent, bg=theme.CARD, on_day_click=None):
         super().__init__(parent, bg=bg)
         self.bg = bg
         self.on_day_click = on_day_click
+        self.selected_day = None
         today = date.today()
         self.year = today.year
         self.month = today.month
@@ -107,16 +121,26 @@ class MiniCalendar(tk.Frame):
 
         header = tk.Frame(self, bg=bg)
         header.pack(fill="x")
-        tk.Button(header, text="<", command=self._prev_month, bd=0, bg=bg, fg=theme.TEXT_MUTED,
-                  activebackground=bg, cursor="hand2", font=(theme.FONT_FAMILY, 10, "bold")).pack(side="left")
+
+        prev_lbl = tk.Label(header, text="‹", bg=bg, fg=theme.TEXT_MUTED,
+                             font=(theme.FONT_FAMILY, 13, "bold"), cursor="hand2", padx=6)
+        prev_lbl.pack(side="left")
         self.title_label = tk.Label(header, text="", bg=bg, fg=theme.TEXT_DARK,
-                                     font=(theme.FONT_FAMILY, 11, "bold"))
+                                     font=(theme.FONT_FAMILY, 12, "bold"))
         self.title_label.pack(side="left", expand=True)
-        tk.Button(header, text=">", command=self._next_month, bd=0, bg=bg, fg=theme.TEXT_MUTED,
-                  activebackground=bg, cursor="hand2", font=(theme.FONT_FAMILY, 10, "bold")).pack(side="right")
+        next_lbl = tk.Label(header, text="›", bg=bg, fg=theme.TEXT_MUTED,
+                             font=(theme.FONT_FAMILY, 13, "bold"), cursor="hand2", padx=6)
+        next_lbl.pack(side="right")
+
+        for lbl, handler in ((prev_lbl, self._prev_month), (next_lbl, self._next_month)):
+            lbl.bind("<Button-1>", lambda _e, h=handler: h())
+            lbl.bind("<Enter>", lambda _e, w=lbl: w.config(fg=theme.ORANGE_DARK))
+            lbl.bind("<Leave>", lambda _e, w=lbl: w.config(fg=theme.TEXT_MUTED))
 
         self.grid_frame = tk.Frame(self, bg=bg)
-        self.grid_frame.pack(fill="both", expand=True, pady=(10, 0))
+        self.grid_frame.pack(fill="both", expand=True, pady=(12, 0))
+        for col in range(7):
+            self.grid_frame.grid_columnconfigure(col, weight=1, uniform="cal_col")
 
     def _prev_month(self):
         self.month -= 1
@@ -142,7 +166,7 @@ class MiniCalendar(tk.Frame):
 
         for col, label in enumerate(["M", "T", "W", "T", "F", "S", "S"]):
             tk.Label(self.grid_frame, text=label, bg=self.bg, fg=theme.TEXT_MUTED,
-                     font=(theme.FONT_FAMILY, 8, "bold"), width=3).grid(row=0, column=col, pady=(0, 4))
+                     font=(theme.FONT_FAMILY, 8, "bold")).grid(row=0, column=col, pady=(0, 6))
 
         weeks = calendar.monthcalendar(self.year, self.month)
         today_str = date.today().isoformat()
@@ -152,28 +176,49 @@ class MiniCalendar(tk.Frame):
                     continue
                 day_str = date(self.year, self.month, day).isoformat()
                 seconds = self.day_totals.get(day_str, 0)
-                bg_color = self._intensity_color(seconds)
                 is_today = day_str == today_str
-                cell = tk.Label(
-                    self.grid_frame, text=str(day), width=3, height=1,
-                    bg=bg_color, fg="white" if seconds > 0 else theme.TEXT_DARK,
-                    font=(theme.FONT_FAMILY, 9, "bold" if is_today else "normal"),
-                    relief="solid" if is_today else "flat", bd=1 if is_today else 0,
-                    highlightbackground=theme.ORANGE, cursor="hand2",
-                )
-                cell.grid(row=row, column=col, padx=2, pady=2)
-                cell.bind("<Button-1>", lambda _e, d=day_str: self.on_day_click and self.on_day_click(d))
+                is_selected = day_str == self.selected_day
+                cell = self._day_cell(day, seconds, is_today, is_selected, day_str)
+                cell.grid(row=row, column=col, pady=2)
+
+    def _day_cell(self, day, seconds, is_today, is_selected, day_str):
+        c = tk.Canvas(self.grid_frame, width=self.CELL, height=self.CELL,
+                       bg=self.bg, highlightthickness=0, cursor="hand2")
+        cx = cy = self.CELL / 2
+
+        if is_selected:
+            r = 14
+            c.create_oval(cx - r, cy - r, cx + r, cy + r, fill=theme.ORANGE, outline="")
+            text_color = "white"
+        elif is_today:
+            r = 14
+            c.create_oval(cx - r, cy - r, cx + r, cy + r, outline=theme.ORANGE, width=2)
+            text_color = theme.ORANGE_DARK
+        else:
+            text_color = theme.TEXT_DARK
+
+        c.create_text(cx, cy - (3 if seconds > 0 else 0), text=str(day), fill=text_color,
+                       font=(theme.FONT_FAMILY, 10, "bold" if (is_today or is_selected) else "normal"))
+
+        if seconds > 0 and not is_selected:
+            dot_color = self._intensity_color(seconds)
+            c.create_oval(cx - 2.5, cy + 8, cx + 2.5, cy + 13, fill=dot_color, outline="")
+
+        c.bind("<Button-1>", lambda _e, d=day_str: self._handle_click(d))
+        return c
+
+    def _handle_click(self, day_str):
+        self.selected_day = day_str
+        self.render()
+        if self.on_day_click:
+            self.on_day_click(day_str)
 
     @staticmethod
     def _intensity_color(seconds):
-        if seconds <= 0:
-            return theme.BG
         hours = seconds / 3600
         if hours < 1:
-            return "#fde4b0"
-        if hours < 2:
-            return "#fbc76b"
-        if hours < 4:
+            return "#f8cd8a"
+        if hours < 3:
             return theme.ORANGE
         return theme.ORANGE_DARK
 
