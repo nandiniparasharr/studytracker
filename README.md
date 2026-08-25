@@ -35,8 +35,8 @@ double-clicking `study_tracker\app.py`, or right-click that file and choose
 
 - **Dashboard** - greeting, this week's totals (today, week, session count,
   average session) with week-on-week deltas, a bar chart of daily hours, a
-  study calendar (a ring on today, a colored dot on any day you studied -
-  darker means more hours), your subject split as a donut, recent sessions,
+  study calendar (today is filled, and any day you studied carries a dot
+  that darkens in two-hour bands: under 2h, 2-4h, 4-6h, over 6h), your subject split as a donut, recent sessions,
   and weekly-goal progress. Use the date range control in the top right to
   look back at earlier weeks, or click a calendar day to see just that day.
 - **Start** - a stopwatch. Press Start when you begin studying, Pause for a

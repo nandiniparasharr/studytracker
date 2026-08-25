@@ -463,14 +463,7 @@ class StudyCalendar(tk.Frame):
 
     @staticmethod
     def intensity_color(seconds):
-        hours = seconds / 3600
-        if hours < 1:
-            return theme.CAL_LOW
-        if hours < 2:
-            return theme.CAL_MED
-        if hours < 3:
-            return theme.CAL_HIGH
-        return theme.CAL_MAX
+        return theme.intensity_color(seconds)
 
 
 class ScrollFrame(tk.Frame):

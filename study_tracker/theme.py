@@ -60,10 +60,25 @@ CAL_MED = "#DB90A6"
 CAL_HIGH = "#C4627F"
 CAL_MAX = "#A03D5B"
 
-CAL_LEGEND = [
-    ("No study", CAL_NONE),
-    ("< 1h", CAL_LOW),
-    ("1 - 2h", CAL_MED),
-    ("2 - 3h", CAL_HIGH),
-    ("> 3h", CAL_MAX),
+# One definition drives both the legend and the dot color, so the two can't
+# drift apart. Each entry is (upper bound in hours, label, color); the last
+# band has no upper bound.
+CAL_BANDS = [
+    (2, "< 2h", CAL_LOW),
+    (4, "2 - 4h", CAL_MED),
+    (6, "4 - 6h", CAL_HIGH),
+    (None, "> 6h", CAL_MAX),
 ]
+
+CAL_LEGEND = [("No study", CAL_NONE)] + [(label, color) for _, label, color in CAL_BANDS]
+
+
+def intensity_color(seconds):
+    """The band color for a day's total, or None for a day with nothing."""
+    if seconds <= 0:
+        return CAL_NONE
+    hours = seconds / 3600
+    for upper, _label, color in CAL_BANDS:
+        if upper is None or hours < upper:
+            return color
+    return CAL_BANDS[-1][2]
