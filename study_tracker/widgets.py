@@ -3,7 +3,6 @@
 import calendar as calmod
 import tkinter as tk
 from datetime import date, timedelta
-from tkinter import simpledialog
 
 import icons
 import storage
@@ -304,8 +303,8 @@ class StudyCalendar(tk.Frame):
     with logged study time (darker = more hours), plus an intensity legend.
     """
 
-    CELL_W = 42
-    CELL_H = 35
+    CELL_H = 46
+    HEADER_H = 26
 
     def __init__(self, parent, bg=theme.CARD, on_day_click=None):
         super().__init__(parent, bg=bg)
@@ -389,30 +388,39 @@ class StudyCalendar(tk.Frame):
         col_w = w / 7
         today_str = date.today().isoformat()
 
-        for i, name in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]):
-            c.create_text(col_w * (i + 0.5), 8, text=name, fill=theme.TEXT_MUTED,
-                          font=(theme.FONT_FAMILY, 9))
+        # Weekday header, then a rule under it - the airy, ruled look of a
+        # native calendar rather than a dense grid of boxes.
+        for i, name in enumerate(["M", "T", "W", "T", "F", "S", "S"]):
+            c.create_text(col_w * (i + 0.5), self.HEADER_H / 2, text=name,
+                          fill=theme.TEXT_MUTED, font=(theme.FONT_FAMILY, 9))
+        c.create_line(0, self.HEADER_H, w, self.HEADER_H, fill=theme.BORDER)
 
         first = date(self.year, self.month, 1)
         start = first - timedelta(days=first.weekday())
-        top = 26
+        weeks = self._weeks_needed(first)
+        top = self.HEADER_H
 
-        for week in range(6):
+        for week in range(weeks):
+            row_top = top + week * self.CELL_H
+            if week:
+                c.create_line(0, row_top, w, row_top, fill=theme.BORDER)
             for col in range(7):
                 day = start + timedelta(days=week * 7 + col)
                 in_month = day.month == self.month
                 day_str = day.isoformat()
                 cx = col_w * (col + 0.5)
-                cy = top + week * self.CELL_H + self.CELL_H / 2
+                cy = row_top + self.CELL_H / 2
                 seconds = self.day_totals.get(day_str, 0)
                 is_today = day_str == today_str
                 is_selected = day_str == self.selected_day
 
                 if is_selected:
-                    c.create_oval(cx - 15, cy - 15, cx + 15, cy + 15, fill=theme.PLUM_LIGHT, outline="")
+                    c.create_oval(cx - 17, cy - 17, cx + 17, cy + 17,
+                                  fill=theme.PLUM_LIGHT, outline="")
                     fg = "white"
                 elif is_today:
-                    c.create_oval(cx - 15, cy - 15, cx + 15, cy + 15, fill=theme.PLUM, outline="")
+                    c.create_oval(cx - 17, cy - 17, cx + 17, cy + 17,
+                                  fill=theme.PLUM, outline="")
                     fg = "white"
                 elif not in_month:
                     fg = theme.TEXT_FAINT
@@ -420,19 +428,24 @@ class StudyCalendar(tk.Frame):
                     fg = theme.TEXT
 
                 weight = "bold" if (is_today or is_selected) else "normal"
-                c.create_text(cx, cy - 2, text=str(day.day), fill=fg,
-                              font=(theme.FONT_FAMILY, 10, weight))
+                c.create_text(cx, cy - 3, text=str(day.day), fill=fg,
+                              font=(theme.FONT_FAMILY, 12, weight))
 
                 if seconds > 0 and not (is_today or is_selected):
-                    c.create_oval(cx - 2.5, cy + 10, cx + 2.5, cy + 15,
+                    c.create_oval(cx - 2.5, cy + 12, cx + 2.5, cy + 17,
                                   fill=self.intensity_color(seconds), outline="")
 
-                self._hit_boxes.append((cx - col_w / 2, cy - self.CELL_H / 2,
-                                        cx + col_w / 2, cy + self.CELL_H / 2, day_str))
+                self._hit_boxes.append((cx - col_w / 2, row_top,
+                                        cx + col_w / 2, row_top + self.CELL_H, day_str))
 
-        needed = top + 6 * self.CELL_H + 4
-        if c.winfo_height() < needed:
+        needed = top + weeks * self.CELL_H + 2
+        if int(c.cget("height")) != needed:
             c.config(height=needed)
+
+    def _weeks_needed(self, first_of_month):
+        """5 or 6 rows, so short months don't leave a trailing empty week."""
+        days = calmod.monthrange(first_of_month.year, first_of_month.month)[1]
+        return (first_of_month.weekday() + days + 6) // 7
 
     def _on_click(self, event):
         for x1, y1, x2, y2, day_str in self._hit_boxes:
@@ -567,6 +580,250 @@ class PillButton(tk.Canvas):
                          font=(theme.FONT_FAMILY, 11, "bold"))
 
 
+class KebabButton(tk.Canvas):
+    """Three-dot row-action button; opens a menu of (label, callback)."""
+
+    def __init__(self, parent, items, bg=theme.CARD, size=28):
+        super().__init__(parent, width=size, height=size, bg=bg,
+                         highlightthickness=0, bd=0, cursor="hand2")
+        self.items = items
+        self._size = size
+        self._bg = bg
+        self.hovered = False
+        self.menu = tk.Menu(self, tearoff=0, font=(theme.FONT_FAMILY, 10),
+                            bg=theme.CARD, fg=theme.TEXT,
+                            activebackground=theme.PLUM_SOFT, activeforeground=theme.PLUM,
+                            bd=0, relief="flat")
+        for label, callback in items:
+            if label == "-":
+                self.menu.add_separator()
+            else:
+                self.menu.add_command(label=label, command=callback)
+        self.bind("<Button-1>", self._open)
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.render()
+
+    def _on_enter(self, _e):
+        self.hovered = True
+        self.render()
+
+    def _on_leave(self, _e):
+        self.hovered = False
+        self.render()
+
+    def render(self):
+        self.delete("all")
+        s = self._size
+        if self.hovered:
+            round_rect(self, 1, 1, s - 1, s - 1, 8, fill=theme.PLUM_SOFT, outline="")
+        color = theme.PLUM if self.hovered else theme.TEXT_MUTED
+        for i in range(3):
+            cy = s / 2 - 6 + i * 6
+            self.create_oval(s / 2 - 1.6, cy - 1.6, s / 2 + 1.6, cy + 1.6,
+                             fill=color, outline="")
+
+    def _open(self, event):
+        self.menu.tk_popup(event.x_root, event.y_root)
+
+
+class ColorGrid(tk.Frame):
+    """Swatch picker; `.get()` returns the chosen color."""
+
+    def __init__(self, parent, colors, selected=None, bg=theme.CARD, per_row=8):
+        super().__init__(parent, bg=bg)
+        self.colors = list(colors)
+        self.bg = bg
+        self.selected = selected or self.colors[0]
+        self._swatches = {}
+        for i, color in enumerate(self.colors):
+            sw = tk.Canvas(self, width=34, height=34, bg=bg,
+                           highlightthickness=0, cursor="hand2")
+            sw.grid(row=i // per_row, column=i % per_row, padx=3, pady=3)
+            sw.bind("<Button-1>", lambda _e, cc=color: self.select(cc))
+            self._swatches[color] = sw
+        self._paint()
+
+    def select(self, color):
+        self.selected = color
+        self._paint()
+
+    def get(self):
+        return self.selected
+
+    def _paint(self):
+        for color, sw in self._swatches.items():
+            sw.delete("all")
+            if color == self.selected:
+                round_rect(sw, 1, 1, 33, 33, 11, fill="", outline=theme.PLUM, width=2)
+                round_rect(sw, 5, 5, 29, 29, 8, fill=color, outline="")
+            else:
+                round_rect(sw, 3, 3, 31, 31, 10, fill=color, outline="")
+
+
+class Modal(tk.Toplevel):
+    """Small themed modal. Subclasses build into `.body` and set `.result`."""
+
+    def __init__(self, parent, title, width=420, height=300):
+        super().__init__(parent)
+        self.result = None
+        self.title(title)
+        self.configure(bg=theme.CARD)
+        self.resizable(False, False)
+        try:
+            self.transient(parent.winfo_toplevel())
+        except tk.TclError:
+            pass
+
+        self.body = tk.Frame(self, bg=theme.CARD)
+        self.body.pack(fill="both", expand=True, padx=24, pady=20)
+
+        self.buttons = tk.Frame(self, bg=theme.CARD)
+        self.buttons.pack(fill="x", padx=24, pady=(0, 20))
+
+        self._width, self._height = width, height
+        self.protocol("WM_DELETE_WINDOW", self.cancel)
+        self.bind("<Escape>", lambda _e: self.cancel())
+
+    def add_buttons(self, save_text="Save"):
+        PillButton(self.buttons, save_text, self.save, kind="primary",
+                    width=120, height=38, bg=theme.CARD).pack(side="right")
+        PillButton(self.buttons, "Cancel", self.cancel, kind="ghost",
+                    width=110, height=38, bg=theme.CARD).pack(side="right", padx=(0, 8))
+
+    def center_on_parent(self):
+        self.update_idletasks()
+        w = max(self._width, self.winfo_reqwidth())
+        h = max(self._height, self.winfo_reqheight())
+        try:
+            p = self.master.winfo_toplevel()
+            x = p.winfo_rootx() + (p.winfo_width() - w) // 2
+            y = p.winfo_rooty() + (p.winfo_height() - h) // 3
+        except tk.TclError:
+            x = y = 200
+        self.geometry(f"{w}x{h}+{max(0, x)}+{max(0, y)}")
+
+    def show(self):
+        self.center_on_parent()
+        try:
+            self.grab_set()
+        except tk.TclError:
+            pass
+        self.wait_window()
+        return self.result
+
+    def save(self):
+        raise NotImplementedError
+
+    def cancel(self):
+        self.result = None
+        self.destroy()
+
+
+class SubjectDialog(Modal):
+    """Create or edit a subject: name + color."""
+
+    def __init__(self, parent, name="", color=None, title="New Subject"):
+        super().__init__(parent, title, width=430, height=300)
+
+        tk.Label(self.body, text="Subject name", bg=theme.CARD, fg=theme.TEXT,
+                 font=(theme.FONT_FAMILY, 11, "bold")).pack(anchor="w")
+        self.name_var = tk.StringVar(value=name)
+        entry = tk.Entry(self.body, textvariable=self.name_var, font=(theme.FONT_FAMILY, 11),
+                         bg=theme.BG, fg=theme.TEXT, relief="flat", insertbackground=theme.TEXT)
+        entry.pack(fill="x", ipady=8, ipadx=8, pady=(8, 0))
+        entry.focus_set()
+        entry.bind("<Return>", lambda _e: self.save())
+
+        tk.Label(self.body, text="Color", bg=theme.CARD, fg=theme.TEXT,
+                 font=(theme.FONT_FAMILY, 11, "bold")).pack(anchor="w", pady=(18, 0))
+        tk.Label(self.body, text="Used to color-code this subject on the dashboard.",
+                 bg=theme.CARD, fg=theme.TEXT_MUTED,
+                 font=(theme.FONT_FAMILY, 9)).pack(anchor="w", pady=(2, 8))
+
+        self.grid_picker = ColorGrid(self.body, storage.DEFAULT_PALETTE,
+                                      selected=color or storage.DEFAULT_PALETTE[0])
+        self.grid_picker.pack(anchor="w")
+
+        self.error = tk.Label(self.body, text="", bg=theme.CARD, fg=theme.PINK,
+                               font=(theme.FONT_FAMILY, 9))
+        self.error.pack(anchor="w", pady=(10, 0))
+
+        self.add_buttons()
+
+    def save(self):
+        name = self.name_var.get().strip()
+        if not name:
+            self.error.config(text="Please enter a name.")
+            return
+        self.result = {"name": name, "color": self.grid_picker.get()}
+        self.destroy()
+
+
+class SessionDialog(Modal):
+    """Edit a logged session: subject and length."""
+
+    def __init__(self, parent, session, subjects):
+        super().__init__(parent, "Edit Session", width=430, height=320)
+        self.subjects = subjects
+        self.colors = {s["name"]: s["color"] for s in subjects}
+
+        tk.Label(self.body, text="Subject", bg=theme.CARD, fg=theme.TEXT,
+                 font=(theme.FONT_FAMILY, 11, "bold")).pack(anchor="w")
+        self.subject_var = tk.StringVar(value=session.get("subject", "Unspecified"))
+        options = ["Unspecified"] + [s["name"] for s in subjects]
+        if self.subject_var.get() not in options:
+            options.append(self.subject_var.get())
+        menu = tk.OptionMenu(self.body, self.subject_var, *options)
+        menu.config(bg=theme.CARD, fg=theme.TEXT, relief="solid", bd=1,
+                    font=(theme.FONT_FAMILY, 10), highlightthickness=0,
+                    activebackground=theme.PLUM_SOFT, anchor="w", padx=10)
+        menu.pack(fill="x", pady=(8, 0))
+
+        tk.Label(self.body, text="Length", bg=theme.CARD, fg=theme.TEXT,
+                 font=(theme.FONT_FAMILY, 11, "bold")).pack(anchor="w", pady=(18, 0))
+
+        secs = int(session.get("seconds", 0))
+        row = tk.Frame(self.body, bg=theme.CARD)
+        row.pack(anchor="w", pady=(8, 0))
+        self.hours_var = tk.StringVar(value=str(secs // 3600))
+        self.mins_var = tk.StringVar(value=str((secs % 3600) // 60))
+        for var, label, limit in ((self.hours_var, "hours", 99), (self.mins_var, "minutes", 59)):
+            tk.Spinbox(row, from_=0, to=limit, textvariable=var, width=4,
+                       font=(theme.FONT_FAMILY, 11), justify="center",
+                       relief="flat", bg=theme.BG).pack(side="left", ipady=5)
+            tk.Label(row, text=label, bg=theme.CARD, fg=theme.TEXT_MUTED,
+                     font=(theme.FONT_FAMILY, 10)).pack(side="left", padx=(6, 16))
+
+        tk.Label(self.body, text=f"Logged on {session.get('date', '')}", bg=theme.CARD,
+                 fg=theme.TEXT_MUTED, font=(theme.FONT_FAMILY, 9)).pack(anchor="w", pady=(16, 0))
+
+        self.error = tk.Label(self.body, text="", bg=theme.CARD, fg=theme.PINK,
+                               font=(theme.FONT_FAMILY, 9))
+        self.error.pack(anchor="w", pady=(8, 0))
+
+        self.add_buttons()
+
+    def save(self):
+        try:
+            hours = int(self.hours_var.get() or 0)
+            minutes = int(self.mins_var.get() or 0)
+        except ValueError:
+            self.error.config(text="Length must be a number.")
+            return
+        total = hours * 3600 + minutes * 60
+        if total <= 0:
+            self.error.config(text="Length must be more than zero.")
+            return
+        name = self.subject_var.get()
+        self.result = {
+            "subject": name,
+            "color": self.colors.get(name, storage.UNSPECIFIED_COLOR),
+            "seconds": total,
+        }
+        self.destroy()
+
+
 class SubjectPicker(tk.Frame):
     """Optional subject chooser used to color-code a session.
 
@@ -632,15 +889,14 @@ class SubjectPicker(tk.Frame):
     def _add_subject(self):
         if self._locked:
             return
-        name = simpledialog.askstring("New Subject", "Subject name:", parent=self)
-        if not name or not name.strip():
+        result = SubjectDialog(self, color=storage.next_color(self.subjects)).show()
+        if not result:
             return
-        name = name.strip()
+        name = result["name"]
         if name not in self.colors:
-            color = storage.next_color(self.subjects)
-            storage.add_subject(name, color)
+            storage.add_subject(name, result["color"])
             self.subjects = storage.load_subjects()
-            self.colors[name] = color
+            self.colors[name] = result["color"]
         self._select(name)
 
     def _select(self, name):

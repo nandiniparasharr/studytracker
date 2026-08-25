@@ -7,8 +7,8 @@ from tkinter import messagebox, simpledialog
 import icons
 import storage
 import theme
-from widgets import (BarChart, PillButton, ProgressBar, RoundedCard, ScrollFrame,
-                     fmt_hm, round_rect)
+from widgets import (BarChart, KebabButton, PillButton, ProgressBar, RoundedCard,
+                     ScrollFrame, SessionDialog, SubjectDialog, fmt_hm, round_rect)
 
 
 class _Page(tk.Frame):
@@ -82,7 +82,7 @@ class SessionsPage(_Page):
             tk.Label(header, text=text, bg=theme.CARD, fg=theme.TEXT_FAINT, width=width,
                      anchor="w", font=(theme.FONT_FAMILY, 8, "bold")).pack(side=side)
         tk.Label(header, text="LENGTH", bg=theme.CARD, fg=theme.TEXT_FAINT,
-                 font=(theme.FONT_FAMILY, 8, "bold")).pack(side="right", padx=(0, 76))
+                 font=(theme.FONT_FAMILY, 8, "bold")).pack(side="right", padx=(0, 44))
 
         tk.Frame(wrap, bg=theme.BORDER, height=1).pack(fill="x")
 
@@ -117,10 +117,20 @@ class SessionsPage(_Page):
         tk.Label(row, text=session.get("kind", "").title(), bg=theme.CARD, fg=theme.TEXT_MUTED,
                  font=(theme.FONT_FAMILY, 10), width=10, anchor="w").pack(side="left")
 
-        PillButton(row, "Delete", lambda sid=session["id"]: self._delete(sid),
-                    kind="ghost", width=68, height=26).pack(side="right")
+        KebabButton(row, [
+            ("Edit", lambda s=session: self._edit(s)),
+            ("-", None),
+            ("Delete", lambda sid=session["id"]: self._delete(sid)),
+        ]).pack(side="right")
         tk.Label(row, text=fmt_hm(session["seconds"]), bg=theme.CARD, fg=theme.TEXT,
                  font=(theme.FONT_FAMILY, 10, "bold")).pack(side="right", padx=(0, 16))
+
+    def _edit(self, session):
+        result = SessionDialog(self, session, storage.load_subjects()).show()
+        if result:
+            storage.update_session(session["id"], **result)
+            self.refresh()
+            self._notify()
 
     def _delete(self, session_id):
         if messagebox.askyesno("Delete session", "Delete this session from your log?", parent=self):
@@ -171,7 +181,7 @@ class SubjectsPage(_Page):
                                 highlightthickness=0, cursor="hand2")
             round_rect(swatch, 1, 1, 25, 25, 8, fill=s["color"], outline="")
             swatch.pack(side="left", padx=(0, 10))
-            swatch.bind("<Button-1>", lambda _e, n=s["name"]: self._cycle_color(n))
+            swatch.bind("<Button-1>", lambda _e, sub=dict(s): self._edit(sub))
 
             tk.Label(row, text=s["name"], bg=theme.CARD, fg=theme.TEXT,
                      font=(theme.FONT_FAMILY, 11), anchor="w", width=20).pack(side="left")
@@ -180,24 +190,35 @@ class SubjectsPage(_Page):
             tk.Label(row, text=f"{fmt_hm(logged)} logged", bg=theme.CARD, fg=theme.TEXT_MUTED,
                      font=(theme.FONT_FAMILY, 9)).pack(side="left")
 
-            PillButton(row, "Delete", lambda n=s["name"]: self._delete(n),
-                        kind="ghost", width=68, height=26).pack(side="right")
+            KebabButton(row, [
+                ("Edit", lambda sub=dict(s): self._edit(sub)),
+                ("-", None),
+                ("Delete", lambda n=s["name"]: self._delete(n)),
+            ]).pack(side="right")
         self._sync_cards()
 
     def _add(self):
-        name = simpledialog.askstring("New Subject", "Subject name:", parent=self)
-        if name and name.strip():
-            subjects = storage.load_subjects()
-            storage.add_subject(name.strip(), storage.next_color(subjects))
-            self.refresh()
-            self._notify()
-
-    def _cycle_color(self, name):
         subjects = storage.load_subjects()
-        current = next((s["color"] for s in subjects if s["name"] == name), None)
-        palette = storage.DEFAULT_PALETTE
-        idx = palette.index(current) if current in palette else -1
-        storage.set_subject_color(name, palette[(idx + 1) % len(palette)])
+        result = SubjectDialog(self, color=storage.next_color(subjects)).show()
+        if not result:
+            return
+        if any(s["name"].lower() == result["name"].lower() for s in subjects):
+            messagebox.showinfo("Subject exists", f"'{result['name']}' is already on your list.",
+                                parent=self)
+            return
+        storage.add_subject(result["name"], result["color"])
+        self.refresh()
+        self._notify()
+
+    def _edit(self, subject):
+        result = SubjectDialog(self, name=subject["name"], color=subject["color"],
+                                title="Edit Subject").show()
+        if not result:
+            return
+        if not storage.edit_subject(subject["name"], result["name"], result["color"]):
+            messagebox.showinfo("Subject exists", f"'{result['name']}' is already on your list.",
+                                parent=self)
+            return
         self.refresh()
         self._notify()
 

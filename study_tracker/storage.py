@@ -73,6 +73,27 @@ def delete_session(session_id):
     return sessions
 
 
+def update_session(session_id, subject=None, color=None, seconds=None):
+    sessions = load_sessions()
+    for s in sessions:
+        if s["id"] != session_id:
+            continue
+        if subject is not None:
+            s["subject"] = subject
+        if color is not None:
+            s["color"] = color
+        if seconds is not None:
+            s["seconds"] = int(seconds)
+            # Keep end = start + length so the Sessions list stays consistent.
+            started = parse_time(s.get("started_at"))
+            if started:
+                s["ended_at"] = (started + timedelta(seconds=int(seconds))).isoformat(
+                    timespec="seconds")
+        break
+    _save_json(SESSIONS_FILE, sessions)
+    return sessions
+
+
 def load_subjects():
     return _load_json(SUBJECTS_FILE, [])
 
@@ -99,6 +120,31 @@ def set_subject_color(name, color):
             s["color"] = color
     _save_json(SUBJECTS_FILE, subjects)
     return subjects
+
+
+def edit_subject(old_name, new_name, color):
+    """Rename/recolor a subject and carry the change onto its past sessions.
+
+    Sessions store their own copy of the label and color (so a deleted
+    subject keeps its history readable), which means an edit has to be
+    applied to them explicitly.
+    """
+    subjects = load_subjects()
+    if new_name != old_name and any(s["name"].lower() == new_name.lower() for s in subjects):
+        return False
+    for s in subjects:
+        if s["name"] == old_name:
+            s["name"] = new_name
+            s["color"] = color
+    _save_json(SUBJECTS_FILE, subjects)
+
+    sessions = load_sessions()
+    for s in sessions:
+        if s["subject"] == old_name:
+            s["subject"] = new_name
+            s["color"] = color
+    _save_json(SESSIONS_FILE, sessions)
+    return True
 
 
 def next_color(existing_subjects):
