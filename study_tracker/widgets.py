@@ -4,20 +4,98 @@ import calendar as calmod
 import tkinter as tk
 from datetime import date, timedelta
 
+import aa
 import icons
 import storage
 import theme
 
 
-def round_rect(canvas, x1, y1, x2, y2, r, **kwargs):
-    """Draw a rounded rectangle on any canvas."""
+def round_rect(canvas, x1, y1, x2, y2, r, fill="", outline="", width=1,
+               bg=None, tags=None, **kwargs):
+    """Draw a rounded rectangle.
+
+    Where Pillow is available the four corners are pasted as anti-aliased
+    tiles and the straight parts drawn as plain rectangles, which keeps the
+    curve smooth at any size. Otherwise it falls back to Tk's smoothed
+    polygon, which is what the app used to draw everywhere.
+    """
+    x1, y1, x2, y2 = float(x1), float(y1), float(x2), float(y2)
     r = max(0, min(r, (x2 - x1) / 2, (y2 - y1) / 2))
-    points = [
-        x1 + r, y1, x2 - r, y1, x2, y1, x2, y1 + r,
-        x2, y2 - r, x2, y2, x2 - r, y2, x1 + r, y2,
-        x1, y2, x1, y2 - r, x1, y1 + r, x1, y1,
+    opts = {}
+    if tags:
+        opts["tags"] = tags
+
+    tiles = None
+    if r >= 2 and fill and aa.available():
+        bg = bg or _widget_bg(canvas)
+        if bg:
+            tiles = aa.corners(r, fill, bg, outline or None, width)
+
+    if tiles is None:
+        points = [
+            x1 + r, y1, x2 - r, y1, x2, y1, x2, y1 + r,
+            x2, y2 - r, x2, y2, x2 - r, y2, x1 + r, y2,
+            x1, y2, x1, y2 - r, x1, y1 + r, x1, y1,
+        ]
+        return canvas.create_polygon(points, smooth=True, fill=fill,
+                                      outline=outline, width=width, **opts, **kwargs)
+
+    ri = int(round(r))
+    items = [
+        canvas.create_image(x1, y1, image=tiles["nw"], anchor="nw", **opts),
+        canvas.create_image(x2, y1, image=tiles["ne"], anchor="ne", **opts),
+        canvas.create_image(x1, y2, image=tiles["sw"], anchor="sw", **opts),
+        canvas.create_image(x2, y2, image=tiles["se"], anchor="se", **opts),
+        # interior: a cross of two rectangles, no anti-aliasing needed
+        canvas.create_rectangle(x1 + ri, y1, x2 - ri, y2, fill=fill, outline="", **opts),
+        canvas.create_rectangle(x1, y1 + ri, x2, y2 - ri, fill=fill, outline="", **opts),
     ]
-    return canvas.create_polygon(points, smooth=True, **kwargs)
+    if outline:
+        items += [
+            canvas.create_line(x1 + ri, y1 + 0.5, x2 - ri, y1 + 0.5,
+                               fill=outline, width=width, **opts),
+            canvas.create_line(x1 + ri, y2 - 0.5, x2 - ri, y2 - 0.5,
+                               fill=outline, width=width, **opts),
+            canvas.create_line(x1 + 0.5, y1 + ri, x1 + 0.5, y2 - ri,
+                               fill=outline, width=width, **opts),
+            canvas.create_line(x2 - 0.5, y1 + ri, x2 - 0.5, y2 - ri,
+                               fill=outline, width=width, **opts),
+        ]
+    return items
+
+
+def _widget_bg(widget):
+    """The solid color a shape will sit on, so it can be composited onto it."""
+    try:
+        return str(widget.cget("bg"))
+    except tk.TclError:
+        return None
+
+
+def draw_disc(canvas, cx, cy, diameter, color, bg=None, tags=None):
+    """A filled circle centred on (cx, cy)."""
+    opts = {"tags": tags} if tags else {}
+    bg = bg or _widget_bg(canvas)
+    img = aa.disc(diameter, color, bg) if bg else None
+    if img is None:
+        r = diameter / 2
+        return canvas.create_oval(cx - r, cy - r, cx + r, cy + r,
+                                   fill=color, outline="", **opts)
+    canvas.create_image(cx, cy, image=img, anchor="center", **opts)
+    return img
+
+
+def draw_ring(canvas, cx, cy, diameter, color, bg=None, width=1.0, tags=None):
+    """A circle outline centred on (cx, cy)."""
+    opts = {"tags": tags} if tags else {}
+    bg = bg or _widget_bg(canvas)
+    img = aa.ring(diameter, color, bg, width) if bg else None
+    if img is None:
+        r = diameter / 2
+        return canvas.create_oval(cx - r, cy - r, cx + r, cy + r,
+                                   outline=color, width=width, **opts)
+    canvas.create_image(cx, cy, image=img, anchor="center", **opts)
+    return img
 
 
 def fmt_hm(seconds, short=False):
@@ -149,8 +227,8 @@ class StatCard(RoundedCard):
         top.pack(fill="x", anchor="w")
 
         bubble = tk.Canvas(top, width=38, height=38, bg=theme.CARD, highlightthickness=0)
-        bubble.create_oval(0, 0, 37, 37, fill=theme.ACCENT_SOFT, outline="")
-        icons.draw(bubble, icon_name, 10, 10, 18, theme.ACCENT)
+        draw_disc(bubble, 19, 19, 38, theme.ACCENT_SOFT, theme.CARD)
+        icons.draw(bubble, icon_name, 10, 10, 18, theme.ACCENT, bg=theme.ACCENT_SOFT)
         bubble.pack(side="left")
 
         right = tk.Frame(top, bg=theme.CARD)
@@ -170,7 +248,12 @@ class StatCard(RoundedCard):
         arrow = tk.Canvas(self.delta_frame, width=12, height=12, bg=theme.CARD, highlightthickness=0)
         up = not delta.startswith("-")
         color = theme.POSITIVE if up else theme.DANGER
-        if up:
+        pts = [(.5, .15), (.92, .75), (.08, .75)] if up else [(.5, .85), (.92, .25), (.08, .25)]
+        img = aa.wedge(12, color, theme.CARD, pts)
+        if img is not None:
+            arrow.create_image(0, 0, image=img, anchor="nw")
+            arrow.image = img
+        elif up:
             arrow.create_polygon(6, 2, 11, 9, 1, 9, fill=color, outline="")
         else:
             arrow.create_polygon(6, 10, 11, 3, 1, 3, fill=color, outline="")
@@ -226,7 +309,7 @@ class BarChart(tk.Canvas):
             base = pad_t + plot_h
             if bh > 1:
                 round_rect(self, cx - bar_w / 2, base - bh, cx + bar_w / 2, base,
-                           min(5, bar_w / 2), fill=theme.ACCENT, outline="")
+                           min(5, bar_w / 2), fill=theme.ACCENT, bg=self._bg)
             self.create_text(cx, h - pad_b + 13, text=self.labels[i], fill=theme.TEXT_MUTED,
                              font=(theme.FONT_FAMILY, 9))
 
@@ -248,39 +331,45 @@ class DonutChart(tk.Canvas):
     def render(self):
         self.delete("all")
         s = self.size
-        pad, thickness = 6, 24
+        thickness = 24
         total = sum(sec for _, sec, _ in self.slices)
 
-        if total <= 0:
-            self.create_oval(pad, pad, s - pad, s - pad, outline=theme.TRACK, width=thickness)
+        img = aa.donut(s, thickness,
+                       [(sec, color) for _, sec, color in self.slices],
+                       self._bg, track=theme.TRACK)
+        if img is not None:
+            self.create_image(0, 0, image=img, anchor="nw")
+            self._ring_img = img
         else:
-            start = 90.0
-            for _, sec, color in self.slices:
-                extent = -360.0 * (sec / total)
-                if abs(extent) < 0.01:
-                    continue
-                # A full circle drawn as an arc renders as nothing; use an oval.
-                if abs(extent) >= 359.99:
-                    self.create_oval(pad + thickness / 2, pad + thickness / 2,
-                                     s - pad - thickness / 2, s - pad - thickness / 2,
-                                     outline=color, width=thickness)
-                else:
-                    self.create_arc(pad + thickness / 2, pad + thickness / 2,
-                                    s - pad - thickness / 2, s - pad - thickness / 2,
-                                    start=start, extent=extent, style="arc",
-                                    outline=color, width=thickness)
-                start += extent
+            pad = 6
+            box = (pad + thickness / 2, pad + thickness / 2,
+                   s - pad - thickness / 2, s - pad - thickness / 2)
+            if total <= 0:
+                self.create_oval(*box, outline=theme.TRACK, width=thickness)
+            else:
+                start = 90.0
+                for _, sec, color in self.slices:
+                    extent = -360.0 * (sec / total)
+                    if abs(extent) < 0.01:
+                        continue
+                    if abs(extent) >= 359.99:
+                        self.create_oval(*box, outline=color, width=thickness)
+                    else:
+                        self.create_arc(*box, start=start, extent=extent, style="arc",
+                                        outline=color, width=thickness)
+                    start += extent
 
         self.create_text(s / 2, s / 2 - 7, text=fmt_hm(total), fill=theme.TEXT,
                          font=(theme.FONT_FAMILY, 12, "bold"))
         self.create_text(s / 2, s / 2 + 11, text="Total", fill=theme.TEXT_MUTED,
                          font=(theme.FONT_FAMILY, 8))
 
-
 class ProgressBar(tk.Canvas):
     def __init__(self, parent, bg=theme.CARD, height=9):
         super().__init__(parent, bg=bg, highlightthickness=0, bd=0, height=height, width=1)
         self._px_h = height
+        self._bg = bg
+        self._imgs = []
         self.ratio = 0.0
         self.bind("<Configure>", lambda _e: self.render())
 
@@ -293,9 +382,17 @@ class ProgressBar(tk.Canvas):
         w, h = self.winfo_width(), self._px_h
         if w < 4:
             return
-        round_rect(self, 0, 0, w, h, h / 2, fill=theme.TRACK, outline="")
-        if self.ratio > 0:
-            round_rect(self, 0, 0, max(h, w * self.ratio), h, h / 2, fill=theme.ACCENT, outline="")
+        self._imgs = []
+        for width_px, color in ((w, theme.TRACK),
+                                (max(h, w * self.ratio) if self.ratio > 0 else 0, theme.ACCENT)):
+            if width_px <= 0:
+                continue
+            img = aa.pill(width_px, h, color, self._bg)
+            if img is None:
+                round_rect(self, 0, 0, width_px, h, h / 2, fill=color, outline="")
+            else:
+                self.create_image(0, 0, image=img, anchor="nw")
+                self._imgs.append(img)
 
 
 class StudyCalendar(tk.Frame):
@@ -315,6 +412,7 @@ class StudyCalendar(tk.Frame):
         today = date.today()
         self.year, self.month = today.year, today.month
         self.day_totals = {}
+        self._image_refs = []
 
         self.header = tk.Frame(self, bg=bg)
         self.header.pack(fill="x")
@@ -354,9 +452,9 @@ class StudyCalendar(tk.Frame):
             item.pack(side="left", padx=8)
             dot = tk.Canvas(item, width=10, height=10, bg=self.bg, highlightthickness=0)
             if color is None:
-                dot.create_oval(1, 1, 9, 9, outline=theme.TEXT_FAINT, width=1)
+                dot.ref = draw_ring(dot, 5, 5, 9, theme.TEXT_FAINT, self.bg, 1)
             else:
-                dot.create_oval(1, 1, 9, 9, fill=color, outline="")
+                dot.ref = draw_disc(dot, 5, 5, 9, color, self.bg)
             dot.pack(side="left", padx=(0, 5))
             tk.Label(item, text=label, bg=self.bg, fg=theme.TEXT_MUTED,
                      font=(theme.FONT_FAMILY, 8)).pack(side="left")
@@ -377,10 +475,16 @@ class StudyCalendar(tk.Frame):
         self.day_totals = day_totals
         self.render()
 
+    def _keep(self, ref):
+        """Tk blanks a PhotoImage that loses its last reference."""
+        if ref is not None:
+            self._image_refs.append(ref)
+
     def render(self):
         c = self.grid_canvas
         c.delete("all")
         self._hit_boxes = []
+        self._image_refs = []
         self.month_label.config(text=f"{calmod.month_name[self.month]} {self.year}")
 
         w = c.winfo_width()
@@ -423,12 +527,10 @@ class StudyCalendar(tk.Frame):
 
                 r = min(17, cell_h / 2 - 2)
                 if is_selected:
-                    c.create_oval(cx - r, cy - r, cx + r, cy + r,
-                                  fill=theme.ACCENT_LIGHT, outline="")
+                    self._keep(draw_disc(c, cx, cy, r * 2, theme.ACCENT_LIGHT, self.bg))
                     fg = "white"
                 elif is_today:
-                    c.create_oval(cx - r, cy - r, cx + r, cy + r,
-                                  fill=theme.ACCENT, outline="")
+                    self._keep(draw_disc(c, cx, cy, r * 2, theme.ACCENT, self.bg))
                     fg = "white"
                 elif not in_month:
                     fg = theme.TEXT_FAINT
@@ -441,8 +543,8 @@ class StudyCalendar(tk.Frame):
 
                 if seconds > 0 and not (is_today or is_selected):
                     dot_y = cy + min(12, cell_h / 2 - 5)
-                    c.create_oval(cx - 2.5, dot_y, cx + 2.5, dot_y + 5,
-                                  fill=self.intensity_color(seconds), outline="")
+                    self._keep(draw_disc(c, cx, dot_y + 2.5, 5.5,
+                                         self.intensity_color(seconds), self.bg))
 
                 self._hit_boxes.append((cx - col_w / 2, row_top,
                                         cx + col_w / 2, row_top + cell_h, day_str))
@@ -546,6 +648,7 @@ class StyledPopup(tk.Toplevel):
         self.items = list(items)
         self._hover = None
         self._rows = []
+        self._image_refs = []
         self._width = width or self._auto_width()
 
         self.overrideredirect(True)
@@ -642,9 +745,14 @@ class StyledPopup(tk.Toplevel):
             pass
 
     # -------------------------------------------------------------- drawing
+    def _keep(self, ref):
+        if ref is not None:
+            self._image_refs.append(ref)
+
     def _render(self):
         c = self.canvas
         c.delete("all")
+        self._image_refs = []
         w, h = self._width, self._height
         round_rect(c, 1, 1, w - 1, h - 1, self.RADIUS,
                    fill=theme.CARD, outline=theme.BORDER, width=1)
@@ -665,14 +773,14 @@ class StyledPopup(tk.Toplevel):
 
             text_x = self.PAD + 14
             color = item.get("color")
+            row_bg = theme.ACCENT_SOFT if hovered else theme.CARD
             if color is not None:
                 cy = y + self.ROW_H / 2
-                c.create_oval(text_x, cy - 5, text_x + 10, cy + 5, fill=color, outline="")
+                self._keep(draw_disc(c, text_x + 5, cy, 10, color, row_bg))
                 text_x += 18
             elif item.get("swatch"):
                 cy = y + self.ROW_H / 2
-                c.create_oval(text_x, cy - 5, text_x + 10, cy + 5,
-                              outline=theme.TEXT_FAINT, width=1)
+                self._keep(draw_ring(c, text_x + 5, cy, 10, theme.TEXT_FAINT, row_bg, 1))
                 text_x += 18
 
             kind = item.get("kind", "normal")
@@ -832,10 +940,11 @@ class KebabButton(tk.Canvas):
         if self.hovered:
             round_rect(self, 1, 1, s - 1, s - 1, 8, fill=theme.ACCENT_SOFT, outline="")
         color = theme.ACCENT if self.hovered else theme.TEXT_MUTED
+        row_bg = theme.ACCENT_SOFT if self.hovered else self._bg
+        self._dots = []
         for i in range(3):
             cy = s / 2 - 6 + i * 6
-            self.create_oval(s / 2 - 1.6, cy - 1.6, s / 2 + 1.6, cy + 1.6,
-                             fill=color, outline="")
+            self._dots.append(draw_disc(self, s / 2, cy, 3.4, color, row_bg))
 
     def _open(self, _event=None):
         popup_items = []
@@ -991,12 +1100,17 @@ class ToggleSwitch(tk.Canvas):
         else:
             on_fill, off_fill, fg = theme.ACCENT, theme.BORDER, theme.TEXT
 
-        round_rect(self, x1, y1, x1 + track_w, y1 + track_h, track_h / 2,
-                   fill=on_fill if self._value else off_fill, outline="")
+        track = aa.pill(track_w, track_h, on_fill if self._value else off_fill, self._bg)
+        if track is not None:
+            self.create_image(x1, y1, image=track, anchor="nw")
+            self._track_img = track
+        else:
+            round_rect(self, x1, y1, x1 + track_w, y1 + track_h, track_h / 2,
+                       fill=on_fill if self._value else off_fill, outline="")
         knob_cx = x1 + (track_w - track_h / 2 - 1) if self._value else x1 + track_h / 2 + 1
-        r = track_h / 2 - 3
-        self.create_oval(knob_cx - r, y1 + track_h / 2 - r,
-                         knob_cx + r, y1 + track_h / 2 + r, fill="white", outline="")
+        knob_bg = on_fill if self._value else off_fill
+        self._knob_img = draw_disc(self, knob_cx, y1 + track_h / 2,
+                                    track_h - 6, "white", knob_bg)
 
         self.create_text(0, 15, text=self.text, anchor="w", fill=fg,
                          font=(theme.FONT_FAMILY, 10))
@@ -1194,10 +1308,10 @@ class SubjectPicker(tk.Frame):
         round_rect(self.chip, 1, 1, 209, 37, 12, fill=theme.CARD,
                    outline=theme.BORDER, width=1)
         if color:
-            self.chip.create_oval(14, 15, 24, 25, fill=color, outline="")
+            self._swatch_ref = draw_disc(self.chip, 19, 20, 10, color, theme.CARD)
             text_x = 32
         else:
-            self.chip.create_oval(14, 15, 24, 25, outline=theme.TEXT_FAINT, width=1)
+            self._swatch_ref = draw_ring(self.chip, 19, 20, 10, theme.TEXT_FAINT, theme.CARD, 1)
             text_x = 32
         fg = theme.TEXT_FAINT if self._locked else theme.TEXT
         self.chip.create_text(text_x, 19, text=name, anchor="w", fill=fg,

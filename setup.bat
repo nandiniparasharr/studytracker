@@ -41,6 +41,14 @@ if not defined PYEXE (
     exit /b 1
 )
 
+rem pythonw.exe is windowless, so use the console interpreter for anything
+rem whose exit code or output we need to read.
+set "PYCONSOLE=!PYEXE!"
+if /i "!PYEXE:~-12!"=="pythonw.exe" (
+    set "PYCONSOLE=!PYEXE:pythonw.exe=python.exe!"
+)
+if not exist "!PYCONSOLE!" set "PYCONSOLE=!PYEXE!"
+
 echo Found Python at: !PYEXE!
 echo App folder: %APP_DIR%
 echo.
@@ -52,6 +60,25 @@ if not exist "%APP_SCRIPT%" (
     pause
     exit /b 1
 )
+
+rem Pillow is optional - it is what lets the app draw smooth (anti-aliased)
+rem circles, rings and rounded corners. Without it everything still works,
+rem the curves are just jagged, so a failure here is not fatal.
+echo Checking for Pillow ^(for smooth graphics^)...
+"!PYCONSOLE!" -c "import PIL" >nul 2>nul
+if errorlevel 1 (
+    echo   Installing Pillow...
+    "!PYCONSOLE!" -m pip install --quiet --disable-pip-version-check pillow >nul 2>nul
+    "!PYCONSOLE!" -c "import PIL" >nul 2>nul
+    if errorlevel 1 (
+        echo   Could not install Pillow - the app will run with plainer graphics.
+    ) else (
+        echo   Pillow installed.
+    )
+) else (
+    echo   Pillow already present.
+)
+echo.
 
 echo Creating desktop shortcut...
 

@@ -8,10 +8,15 @@ plain Python script and a JSON file on your own computer.
 
 1. Make sure [Python](https://www.python.org/downloads/) is installed
    (check "Add Python to PATH" during install). Tkinter ships with Python
-   by default, so nothing else needs to be installed.
+   by default.
 2. Double-click **`setup.bat`**.
-   - It finds your Python install, creates a **"Study Tracker"** shortcut
-     on your Desktop, and launches the app.
+   - It finds your Python install, installs Pillow if it isn't already
+     there, creates a **"Study Tracker"** shortcut on your Desktop, and
+     launches the app.
+   - Pillow is the one optional dependency: Tk's canvas has no
+     anti-aliasing, so the app rasterises its circles, rings and rounded
+     corners through Pillow to keep the curves smooth. Without it
+     everything still works, the curves are just jagged.
 3. From then on, just use the **Study Tracker** icon on your Desktop.
 
 You can also run it directly at any time with:
@@ -79,7 +84,8 @@ study_tracker/
   timer_page.py            Timer page (countdown)
   pages.py                 Sessions, Subjects, Reports, Goals, Settings
   widgets.py               cards, nav, charts, calendar, buttons, scrolling
-  icons.py                 vector line icons drawn on canvas
+  icons.py                 vector line icons, one declarative table
+  aa.py                    anti-aliased shape rasteriser (optional Pillow)
   storage.py               JSON persistence and analytics helpers
   theme.py                 shared colors/fonts
   data/                    created at runtime (git-ignored)

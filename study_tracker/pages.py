@@ -8,7 +8,8 @@ import icons
 import storage
 import theme
 from widgets import (BarChart, KebabButton, PillButton, ProgressBar, RoundedCard,
-                     ScrollFrame, SessionDialog, SubjectDialog, fmt_hm, round_rect)
+                     ScrollFrame, SessionDialog, SubjectDialog, draw_disc,
+                     fmt_hm, round_rect)
 
 
 class _Page(tk.Frame):
@@ -97,7 +98,7 @@ class SessionsPage(_Page):
         subject = tk.Frame(row, bg=theme.CARD, width=16)
         subject.pack(side="left")
         dot = tk.Canvas(subject, width=10, height=10, bg=theme.CARD, highlightthickness=0)
-        dot.create_oval(1, 1, 9, 9, fill=session["color"], outline="")
+        dot.ref = draw_disc(dot, 5, 5, 9, session["color"], theme.CARD)
         dot.pack(side="left", padx=(0, 7))
         tk.Label(subject, text=session["subject"], bg=theme.CARD, fg=theme.TEXT,
                  font=(theme.FONT_FAMILY, 10), anchor="w", width=13).pack(side="left")
@@ -391,8 +392,8 @@ class GoalsPage(_Page):
         sw = tk.Frame(streak_card.body, bg=theme.CARD)
         sw.pack(fill="both", expand=True, padx=24, pady=20)
         flame = tk.Canvas(sw, width=40, height=40, bg=theme.CARD, highlightthickness=0)
-        flame.create_oval(0, 0, 39, 39, fill=theme.ACCENT_SOFT, outline="")
-        icons.draw(flame, "flame", 11, 10, 18, theme.ACCENT)
+        flame.ref = draw_disc(flame, 20, 20, 40, theme.ACCENT_SOFT, theme.CARD)
+        icons.draw(flame, "flame", 11, 10, 18, theme.ACCENT, bg=theme.ACCENT_SOFT)
         flame.pack(side="left", padx=(0, 14))
         text = tk.Frame(sw, bg=theme.CARD)
         text.pack(side="left")

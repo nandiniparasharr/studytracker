@@ -4,11 +4,12 @@ import getpass
 import tkinter as tk
 from datetime import date, datetime, timedelta
 
+import aa
 import icons
 import storage
 import theme
 from widgets import (BarChart, DonutChart, PillButton, ProgressBar, RoundedCard,
-                     StatCard, StudyCalendar, fmt_hm, round_rect)
+                     StatCard, StudyCalendar, draw_disc, fmt_hm, round_rect)
 
 FOOTER_QUOTE = "Dreams don't work unless you do."
 
@@ -128,9 +129,15 @@ class DashboardPage(tk.Frame):
         tk.Label(strip, text=FOOTER_QUOTE, bg=theme.BG, fg=theme.TEXT_MUTED,
                  font=(theme.FONT_FAMILY, 10)).pack(side="left")
         heart = tk.Canvas(strip, width=14, height=14, bg=theme.BG, highlightthickness=0)
-        heart.create_oval(1, 2, 8, 9, fill=theme.DANGER, outline="")
-        heart.create_oval(6, 2, 13, 9, fill=theme.DANGER, outline="")
-        heart.create_polygon(1.5, 6, 12.5, 6, 7, 13, fill=theme.DANGER, outline="")
+        heart.ref = aa.wedge(14, theme.DANGER, theme.BG,
+                             [(.50, .28), (.62, .12), (.82, .12), (.95, .28), (.95, .46),
+                              (.50, .93), (.05, .46), (.05, .28), (.18, .12), (.38, .12)])
+        if heart.ref is not None:
+            heart.create_image(0, 0, image=heart.ref, anchor="nw")
+        else:
+            heart.create_oval(1, 2, 8, 9, fill=theme.DANGER, outline="")
+            heart.create_oval(6, 2, 13, 9, fill=theme.DANGER, outline="")
+            heart.create_polygon(1.5, 6, 12.5, 6, 7, 13, fill=theme.DANGER, outline="")
         heart.pack(side="left", padx=(6, 0))
 
     # -------------------------------------------------------------- data
@@ -269,7 +276,7 @@ class DashboardPage(tk.Frame):
         legend.grid_columnconfigure(1, weight=1)
         for r, (name, data) in enumerate(ranked[:6]):
             dot = tk.Canvas(legend, width=10, height=10, bg=theme.CARD, highlightthickness=0)
-            dot.create_oval(1, 1, 9, 9, fill=data["color"], outline="")
+            dot.ref = draw_disc(dot, 5, 5, 9, data["color"], theme.CARD)
             dot.grid(row=r, column=0, padx=(0, 7), pady=3)
             tk.Label(legend, text=name, bg=theme.CARD, fg=theme.TEXT,
                      font=(theme.FONT_FAMILY, 9), anchor="w").grid(row=r, column=1, sticky="w")
@@ -314,7 +321,7 @@ class DashboardPage(tk.Frame):
             item = tk.Frame(wrap, bg=theme.CARD)
             item.pack(fill="x", pady=5)
             dot = tk.Canvas(item, width=10, height=10, bg=theme.CARD, highlightthickness=0)
-            dot.create_oval(1, 1, 9, 9, fill=s["color"], outline="")
+            dot.ref = draw_disc(dot, 5, 5, 9, s["color"], theme.CARD)
             dot.pack(side="left", padx=(0, 7))
             tk.Label(item, text=s["subject"], bg=theme.CARD, fg=theme.TEXT,
                      font=(theme.FONT_FAMILY, 9), anchor="w", width=11).pack(side="left")
@@ -375,8 +382,8 @@ class DashboardPage(tk.Frame):
         bar.set_ratio(ratio)
 
         trophy = tk.Canvas(bar_row, width=56, height=56, bg=theme.CARD, highlightthickness=0)
-        trophy.create_oval(0, 0, 55, 55, fill=theme.ACCENT_SOFT, outline="")
-        icons.draw(trophy, "trophy", 15, 15, 26, theme.ACCENT)
+        trophy.ref = draw_disc(trophy, 28, 28, 56, theme.ACCENT_SOFT, theme.CARD)
+        icons.draw(trophy, "trophy", 15, 15, 26, theme.ACCENT, bg=theme.ACCENT_SOFT)
         trophy.pack(side="right", padx=(14, 0))
 
         remaining = max(0, target - done)
