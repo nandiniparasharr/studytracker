@@ -221,6 +221,13 @@ class SubjectsPage(_Page):
     def _reassign(self):
         subjects = storage.load_subjects()
         if not subjects:
+            messagebox.showinfo(
+                "No subjects yet",
+                "There is nothing to recolor - add a subject first.\n\n"
+                "New subjects already pick the next unused palette color "
+                "on their own.",
+                parent=self,
+            )
             return
         if messagebox.askyesno(
             "Recolor all subjects",
