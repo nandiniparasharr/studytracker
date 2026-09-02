@@ -1180,7 +1180,7 @@ class SubjectDialog(Modal):
 
         self.grid_picker = ColorGrid(self.body, storage.DEFAULT_PALETTE,
                                       selected=color or storage.DEFAULT_PALETTE[0],
-                                      per_row=6)
+                                      per_row=5)
         self.grid_picker.pack(anchor="w")
 
         self.error = tk.Label(self.body, text="", bg=theme.CARD, fg=theme.DANGER,

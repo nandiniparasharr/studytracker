@@ -54,7 +54,10 @@ double-clicking `study_tracker\app.py`, or right-click that file and choose
   editing the session.
 - **Sessions** - the full log, with the option to delete any entry.
 - **Subjects** - add or remove subjects and click a swatch to change its
-  color.
+  color. The palette is ten colors picked to be told apart at a glance -
+  one hue family each, all held to a muted chroma so nothing reads as a
+  primary. **Recolor all** hands every subject a different one in palette
+  order and updates your existing sessions to match.
 - **Reports** - this week vs. last week vs. this month, an eight-week trend,
   and all-time totals per subject.
 - **Goals** - set your weekly target and see your current streak.

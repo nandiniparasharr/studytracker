@@ -168,6 +168,8 @@ class SubjectsPage(_Page):
                  font=(theme.FONT_FAMILY, 13, "bold")).pack(side="left")
         PillButton(head, "+ Add Subject", self._add, kind="primary",
                     width=146, height=32).pack(side="right")
+        PillButton(head, "Recolor all", self._reassign, kind="ghost",
+                    width=120, height=32).pack(side="right", padx=(0, 8))
 
         tk.Label(wrap, text="Subjects are never required - you can always start a session without one.",
                  bg=theme.CARD, fg=theme.TEXT_MUTED,
@@ -215,6 +217,21 @@ class SubjectsPage(_Page):
         storage.add_subject(result["name"], result["color"])
         self.refresh()
         self._notify()
+
+    def _reassign(self):
+        subjects = storage.load_subjects()
+        if not subjects:
+            return
+        if messagebox.askyesno(
+            "Recolor all subjects",
+            f"Give all {len(subjects)} subjects a fresh color from the palette?\n\n"
+            "Each gets a different one, and your existing sessions are "
+            "updated to match.",
+            parent=self,
+        ):
+            storage.reassign_palette()
+            self.refresh()
+            self._notify()
 
     def _edit(self, subject):
         result = SubjectDialog(self, name=subject["name"], color=subject["color"],

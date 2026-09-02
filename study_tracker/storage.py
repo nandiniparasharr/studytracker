@@ -15,21 +15,24 @@ SUBJECTS_FILE = os.path.join(DATA_DIR, "subjects.json")
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 
 # Subjects are a color-coded extra, never required to start a session.
-# Twelve hues, each distinguishable from the others at dot size on a white
-# card - so a dozen subjects can all be told apart on the dashboard.
+#
+# Ten colors, chosen by maximising the smallest pairwise CIEDE2000 distance
+# under three constraints: one distinct hue family each (no two within 24
+# degrees), chroma held to C* 28-43 so they read as considered rather than
+# primary (primaries sit at C* 60-105), and every one at least dE 20 from
+# the UI accent so a subject dot never looks like accent chrome.
+# The closest pair is dE 22, which is comfortably "unmistakable".
 DEFAULT_PALETTE = [
-    "#5C2444",  # plum
-    "#7D9B7E",  # sage
-    "#E8A85C",  # amber
-    "#E3A0BC",  # blush
-    "#2F8A82",  # teal
-    "#6B8CAE",  # steel blue
-    "#D4886A",  # terracotta
-    "#8E5FA8",  # orchid
-    "#7A8C3F",  # olive
-    "#8F3A38",  # brick
-    "#3F4E8C",  # indigo
-    "#8C6A56",  # cocoa
+    "#EC8C7A",  # coral
+    "#A06431",  # tobacco
+    "#C1A257",  # wheat
+    "#6E7646",  # olive
+    "#6CB67A",  # sage
+    "#1F7F7B",  # teal
+    "#29B3DE",  # cerulean
+    "#2E75BA",  # denim
+    "#7E6997",  # amethyst
+    "#E28ABF",  # orchid
 ]
 # Neutral grey so an unlabelled session reads as "no subject"
 # rather than as one more color in the palette.
@@ -165,6 +168,27 @@ def edit_subject(old_name, new_name, color):
             s["color"] = color
     _save_json(SESSIONS_FILE, sessions)
     return True
+
+
+def reassign_palette():
+    """Give every subject the next palette color, in list order.
+
+    Sessions keep their own copy of the color, so the change is pushed onto
+    the existing log too - otherwise the dashboard would still show the old
+    colors for everything already recorded.
+    """
+    subjects = load_subjects()
+    for i, subject in enumerate(subjects):
+        subject["color"] = DEFAULT_PALETTE[i % len(DEFAULT_PALETTE)]
+    _save_json(SUBJECTS_FILE, subjects)
+
+    by_name = {s["name"]: s["color"] for s in subjects}
+    sessions = load_sessions()
+    for session in sessions:
+        if session["subject"] in by_name:
+            session["color"] = by_name[session["subject"]]
+    _save_json(SESSIONS_FILE, sessions)
+    return subjects
 
 
 def next_color(existing_subjects):

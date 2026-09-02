@@ -22,6 +22,10 @@ def greeting_for(hour):
     return "Good evening"
 
 
+def _ellipsis(text, limit):
+    return text if len(text) <= limit else text[:limit - 1].rstrip() + "\u2026"
+
+
 def display_name():
     name = storage.load_settings().get("display_name", "").strip()
     if name:
@@ -323,10 +327,12 @@ class DashboardPage(tk.Frame):
             dot = tk.Canvas(item, width=10, height=10, bg=theme.CARD, highlightthickness=0)
             dot.ref = draw_disc(dot, 5, 5, 9, s["color"], theme.CARD)
             dot.pack(side="left", padx=(0, 7))
-            tk.Label(item, text=s["subject"], bg=theme.CARD, fg=theme.TEXT,
-                     font=(theme.FONT_FAMILY, 9), anchor="w", width=11).pack(side="left")
+            # Ellipsise rather than letting the fixed-width label clip: a
+            # long subject would otherwise run straight into the date.
+            tk.Label(item, text=_ellipsis(s["subject"], 13), bg=theme.CARD, fg=theme.TEXT,
+                     font=(theme.FONT_FAMILY, 9), anchor="w", width=13).pack(side="left")
             tk.Label(item, text=self._relative_day(s["date"]), bg=theme.CARD, fg=theme.TEXT_MUTED,
-                     font=(theme.FONT_FAMILY, 9), anchor="w").pack(side="left")
+                     font=(theme.FONT_FAMILY, 9), anchor="w").pack(side="left", padx=(6, 0))
             tk.Label(item, text=fmt_hm(s["seconds"]), bg=theme.CARD, fg=theme.TEXT,
                      font=(theme.FONT_FAMILY, 9, "bold")).pack(side="right")
 
