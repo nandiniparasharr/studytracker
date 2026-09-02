@@ -42,9 +42,9 @@ TEXT_FAINT = "#8A8C91"     # out-of-month dates, column headers
 SIDEBAR = INK
 SIDEBAR_ACTIVE = "#2A2C31"
 SIDEBAR_HOVER = "#212328"
-SIDEBAR_TEXT = "#A9AAAE"
+SIDEBAR_TEXT = "#D5D6DA"       # bright enough to read as white at a glance
 SIDEBAR_TEXT_ACTIVE = "#FFFFFF"
-SIDEBAR_MUTED = MUTED
+SIDEBAR_MUTED = "#8C8E95"      # MUTED is tuned for light cards, too dim here
 SIDEBAR_DIVIDER = "#2A2C31"
 
 # --------------------------------------------------------- feedback

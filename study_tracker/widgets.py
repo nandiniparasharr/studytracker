@@ -211,8 +211,11 @@ class NavButton(tk.Canvas):
             fg = theme.SIDEBAR_TEXT
 
         icons.draw(self, self.icon_name, 16, (h - 18) / 2, 18, fg)
+        # Bold throughout - the active pill and the brighter fill already
+        # carry the selected state, and normal weight read as washed out
+        # against the dark panel.
         self.create_text(48, h / 2, text=self.text, anchor="w", fill=fg,
-                         font=(theme.FONT_FAMILY, 11, "bold" if self.active else "normal"))
+                         font=(theme.FONT_FAMILY, 11, "bold"))
 
 
 class StatCard(RoundedCard):

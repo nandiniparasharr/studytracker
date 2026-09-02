@@ -16,10 +16,10 @@ FOOTER_QUOTE = "Dreams don't work unless you do."
 
 def greeting_for(hour):
     if hour < 12:
-        return "Good morning"
+        return "Good Morning"
     if hour < 17:
-        return "Good afternoon"
-    return "Good evening"
+        return "Good Afternoon"
+    return "Good Evening"
 
 
 def _ellipsis(text, limit):
