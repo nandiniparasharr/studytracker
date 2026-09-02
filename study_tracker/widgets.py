@@ -641,7 +641,6 @@ class StyledPopup(tk.Toplevel):
     SEP_H = 9
     PAD = 6
     RADIUS = 12
-    TRANSPARENT_KEY = "#FF00FE"
 
     MIN_W = 168
     MAX_W = 330
@@ -660,22 +659,24 @@ class StyledPopup(tk.Toplevel):
         except tk.TclError:
             pass
 
-        # On Windows a key color renders as truly transparent, so the card's
-        # rounded corners have nothing boxy behind them. Elsewhere fall back
-        # to the page background, which is near-invisible at this radius.
+        # The panel used to key one color out to transparent so the rounded
+        # corners had nothing boxy behind them. On Windows that turns the
+        # panel into a layered window, and a layered + overrideredirect
+        # toplevel can come up entirely unpainted - a dropdown that opens
+        # but shows nothing at all. The corners now sit on the page
+        # background instead, which at this radius is all but invisible,
+        # and the panel paints reliably everywhere.
         bg = theme.BG
-        try:
-            self.attributes("-transparentcolor", self.TRANSPARENT_KEY)
-            bg = self.TRANSPARENT_KEY
-        except tk.TclError:
-            pass
         self.configure(bg=bg)
 
         height = self.PAD * 2 + sum(
             self.SEP_H if it.get("sep") else self.ROW_H for it in self.items)
         self._height = height
 
-        self.canvas = tk.Canvas(self, width=width, height=height, bg=bg,
+        # `width` is None unless a caller pins it; Tkinter drops None
+        # options, which left the canvas at Tk's default width instead of
+        # the width the panel was measured and positioned for.
+        self.canvas = tk.Canvas(self, width=self._width, height=height, bg=bg,
                                 highlightthickness=0, bd=0)
         self.canvas.pack()
         self.canvas.bind("<Motion>", self._on_motion)
@@ -687,6 +688,17 @@ class StyledPopup(tk.Toplevel):
 
         self._place(anchor, align)
         self._render()
+
+        # An overrideredirect toplevel is not guaranteed to come up above
+        # the window that spawned it, and a dropdown behind the app reads
+        # as one that never opened.
+        try:
+            self.deiconify()
+            self.lift()
+            self.attributes("-topmost", True)
+        except tk.TclError:
+            pass
+        self.update_idletasks()
 
         self.after(10, self._take_grab)
 
