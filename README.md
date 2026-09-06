@@ -4,6 +4,9 @@ A small local desktop app for tracking how many hours you study during the
 week. No install, no account, no internet connection - everything is a
 plain Python script and a JSON file on your own computer.
 
+For the full picture - data model, palette, architecture, design
+decisions and known limits - see [spec.md](spec.md).
+
 ## Setup (Windows)
 
 1. Make sure [Python](https://www.python.org/downloads/) is installed
