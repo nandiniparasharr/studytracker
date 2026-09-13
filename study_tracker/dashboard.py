@@ -8,7 +8,7 @@ import aa
 import icons
 import storage
 import theme
-from widgets import (BarChart, DonutChart, PillButton, ProgressBar, RoundedCard,
+from widgets import (BarChart, DonutChart, PillButton, ProgressBar, RoundedCard, fit_text,
                      StatCard, StudyCalendar, draw_disc, fmt_hm, round_rect)
 
 FOOTER_QUOTE = "Dreams don't work unless you do."
@@ -278,17 +278,76 @@ class DashboardPage(tk.Frame):
         # Grid (not pack) so the name column absorbs the slack and the
         # duration/percent columns stay aligned instead of colliding.
         legend.grid_columnconfigure(1, weight=1)
+        self._legend_names = []
         for r, (name, data) in enumerate(ranked[:6]):
             dot = tk.Canvas(legend, width=10, height=10, bg=theme.CARD, highlightthickness=0)
             dot.ref = draw_disc(dot, 5, 5, 9, data["color"], theme.CARD)
             dot.grid(row=r, column=0, padx=(0, 7), pady=3)
-            tk.Label(legend, text=name, bg=theme.CARD, fg=theme.TEXT,
-                     font=(theme.FONT_FAMILY, 9), anchor="w").grid(row=r, column=1, sticky="w")
-            tk.Label(legend, text=fmt_hm(data["seconds"]), bg=theme.CARD, fg=theme.TEXT_MUTED,
-                     font=(theme.FONT_FAMILY, 9), anchor="e").grid(row=r, column=2, sticky="e", padx=(8, 0))
+            label = tk.Label(legend, text=name, bg=theme.CARD, fg=theme.TEXT,
+                             font=(theme.FONT_FAMILY, 9), anchor="w")
+            label.grid(row=r, column=1, sticky="w")
+            dur = tk.Label(legend, text=fmt_hm(data["seconds"]), bg=theme.CARD,
+                           fg=theme.TEXT_MUTED, font=(theme.FONT_FAMILY, 9), anchor="e")
+            dur.grid(row=r, column=2, sticky="e", padx=(8, 0))
             pct = data["seconds"] / total_secs * 100 if total_secs else 0
-            tk.Label(legend, text=f"{pct:.0f}%", bg=theme.CARD, fg=theme.TEXT_MUTED,
-                     font=(theme.FONT_FAMILY, 9), width=4, anchor="e").grid(row=r, column=3, sticky="e")
+            pct_label = tk.Label(legend, text=f"{pct:.0f}%", bg=theme.CARD,
+                                 fg=theme.TEXT_MUTED, font=(theme.FONT_FAMILY, 9),
+                                 width=4, anchor="e")
+            pct_label.grid(row=r, column=3, sticky="e")
+            self._legend_names.append((label, name, dur, pct_label))
+
+        # A subject name longer than the panel gets clipped mid-word by its
+        # grid cell, and a character count is the wrong unit to trim by in a
+        # proportional font - "Portfolio Manag." fits where "Quantitative Me"
+        # does not. Measure instead, once the legend knows how wide it is.
+        self._legend_state = None
+        legend.bind("<Configure>", self._fit_legend)
+        self._fit_legend()
+
+    # Below these the name column is too cramped to be worth the company:
+    # a subject you cannot read is worse than a percentage you cannot see.
+    DROP_PCT_BELOW = 78
+    DROP_DURATION_BELOW = 52
+
+    def _fit_legend(self, _event=None):
+        rows = getattr(self, "_legend_names", None)
+        if not rows:
+            return
+        legend = rows[0][0].master
+        available = legend.winfo_width()
+        if available <= 1:                     # not laid out yet
+            return
+
+        dot_col = 10 + 7                       # swatch plus its padding
+        dur_col = max(d.winfo_reqwidth() for _, _, d, _ in rows) + 8
+        pct_col = max(p.winfo_reqwidth() for _, _, _, p in rows)
+
+        # Shed the optional columns before squeezing the names to nothing.
+        budget = available - dot_col - dur_col - pct_col
+        show_pct = budget >= self.DROP_PCT_BELOW
+        if not show_pct:
+            budget += pct_col
+        show_dur = budget >= self.DROP_DURATION_BELOW
+        if not show_dur:
+            budget += dur_col
+
+        state = (show_dur, show_pct,
+                 tuple(fit_text(full, budget, 9) for _, full, _, _ in rows))
+        # Every change here re-lays out the legend and fires <Configure>
+        # again. Comparing the state we are about to apply - rather than the
+        # width it came from, which oscillates as columns come and go - means
+        # the second pass is a no-op and the loop stops.
+        if state == getattr(self, "_legend_state", None):
+            return
+        self._legend_state = state
+
+        for (label, _full, dur, pct), text in zip(rows, state[2]):
+            label.config(text=text)
+            for widget, shown in ((dur, show_dur), (pct, show_pct)):
+                if shown:
+                    widget.grid()
+                else:
+                    widget.grid_remove()
 
     def _render_recent(self):
         body = self.recent_card.body

@@ -624,6 +624,28 @@ class ScrollFrame(tk.Frame):
         self.canvas.yview_scroll(delta * 2, "units")
 
 
+def fit_text(text, max_px, size=10, ellipsis="\u2026"):
+    """Trim `text` to fit `max_px`, with an ellipsis if anything was cut.
+
+    Character counts are the wrong unit in a proportional font - two labels
+    of equal length can differ by a third in pixels - so this measures.
+    """
+    if max_px <= 0:
+        # Returning the original here would guarantee an overflow, which is
+        # the one thing the caller asked to avoid.
+        return ellipsis
+    try:
+        import tkinter.font as tkfont
+        font = tkfont.Font(family=theme.FONT_FAMILY, size=size)
+    except (tk.TclError, ImportError):
+        return text
+    if font.measure(text) <= max_px:
+        return text
+    while text and font.measure(text + ellipsis) > max_px:
+        text = text[:-1]
+    return (text.rstrip() + ellipsis) if text else ellipsis
+
+
 class StyledPopup(tk.Toplevel):
     """A themed dropdown panel.
 
@@ -714,20 +736,6 @@ class StyledPopup(tk.Toplevel):
         # dot + text + room for the tick on the right
         return int(max(self.MIN_W, min(self.MAX_W, widest + 78)))
 
-    def _fit(self, text, max_px):
-        """Trim a label that still doesn't fit, with an ellipsis."""
-        try:
-            import tkinter.font as tkfont
-            font = tkfont.Font(family=theme.FONT_FAMILY, size=10)
-        except (tk.TclError, ImportError):
-            return text
-        if font.measure(text) <= max_px:
-            return text
-        ell = "..."
-        while text and font.measure(text + ell) > max_px:
-            text = text[:-1]
-        return text.rstrip() + ell
-
     # ------------------------------------------------------------ placement
     def _place(self, anchor, align):
         if anchor is not None:
@@ -808,7 +816,7 @@ class StyledPopup(tk.Toplevel):
             weight = "bold" if kind == "accent" else "normal"
 
             tick_room = 22 if item.get("checked") else 6
-            label = self._fit(item["label"], w - text_x - self.PAD - tick_room)
+            label = fit_text(item["label"], w - text_x - self.PAD - tick_room)
             c.create_text(text_x, y + self.ROW_H / 2, text=label, anchor="w",
                           fill=fg, font=(theme.FONT_FAMILY, 10, weight))
 
